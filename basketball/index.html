@@ -990,8 +990,8 @@ html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gr
 
   <div class="grid g2" style="margin-top:var(--sp-4)">
     <div class="card">
-      <div class="row"><h3>Scoring &amp; roster</h3><span class="spacer"></span><a class="btn small" href="https://claude.ai/artifact/XrwgjCEecq5ewboJmcH8Wd" target="_blank" rel="noopener">Full rulebook ↗</a></div>
-      <div class="ss-sg"><div><b>1</b><span>Point</span></div><div><b>1.2</b><span>Rebound</span></div><div><b>1.5</b><span>Assist</span></div><div><b>3</b><span>Steal</span></div><div><b>3</b><span>Block</span></div><div><b class="neg">−1</b><span>Turnover</span></div></div>
+      <div class="row"><h3>Scoring &amp; roster</h3><span class="pill">Sleeper default</span><span class="spacer"></span><a class="btn small" href="https://claude.ai/artifact/XrwgjCEecq5ewboJmcH8Wd" target="_blank" rel="noopener">Full rulebook ↗</a></div>
+      <div class="ss-sg"><div><b>0.5</b><span>Point</span></div><div><b>1</b><span>Rebound</span></div><div><b>1</b><span>Assist</span></div><div><b>2</b><span>Steal</span></div><div><b>2</b><span>Block</span></div><div><b class="neg">−1</b><span>Turnover</span></div><div><b>0.5</b><span>3-pointer</span></div><div><b>1</b><span>Double-double</span></div><div><b>2</b><span>Triple-double</span></div><div><b>2</b><span>40+ pts</span></div><div><b>2</b><span>50+ pts</span></div><div><b class="neg">−2</b><span>Tech / flagrant</span></div></div>
       <div class="eyebrow" style="margin:16px 0 8px">Starting lineup (10)</div>
       <div class="row"><span class="pos">PG</span><span class="pos">SG</span><span class="pos">G</span><span class="pos">SF</span><span class="pos">PF</span><span class="pos">F</span><span class="pos">C</span><span class="pos">C</span><span class="pos">UTIL</span><span class="pos">UTIL</span></div>
       <div class="ss-stats"><div><span>Bench</span><b>10</b></div><div><span>IR (OUT/susp.)</span><b>3</b></div><div><span>Taxi (≤2 yrs)</span><b>3</b></div><div><span>Max roster</span><b>26</b></div></div>
@@ -1072,6 +1072,8 @@ const SC_LABELS = { pts: 'Points', reb: 'Rebounds', ast: 'Assists', stl: 'Steals
 const DEFAULTS = { window: 45, expertWeight: 50, horizon: 5, lockin: true, hideDrafted: false };
 let S = Object.assign({}, DEFAULTS, store.get('settings', {}));
 let SC = Object.assign({}, SLEEPER, store.get('scoring_v2', {}));
+// One-time switch back to Sleeper's default scoring (requested 2026-10-12); later edits on the Scoring tab still stick.
+if (!store.get('sleeper_default_v1', false)) { SC = { ...SLEEPER }; store.set('scoring_v2', SC); store.set('sleeper_default_v1', true); }
 let NOTES = store.get('notes', {});
 let MYORDER = store.get('myorder', null);
 let FLAGS = store.get('flags', {});
