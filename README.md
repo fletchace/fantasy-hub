@@ -19,8 +19,9 @@ To host it, upload the whole folder to any static host (GitHub Pages, Netlify, C
 | `index.html` | Landing page: stadium animation, click-to-throw, live countdowns, Sleeper trending ticker |
 | `football/` | Football HQ: Gameday, Leagues, Start/Sit, Waivers, Dynasty Board, Trade Lab, Mock Startup, Dynasty Plan |
 | `football/nfl-snapshot.js` | Player bios (age, college, size) from Sleeper, built 2026-10-12. Live data refreshes over it |
-| `basketball/index.html` | Basketball HQ landing: calendar, Sleeper NBA leagues, Lock-In helper, rules, lottery drum |
-| `basketball/draft-hq.html` | The Dynasty Draft HQ artifact, unchanged apart from a "← Hub" button |
+| `basketball/index.html` | Basketball HQ: the Dynasty Draft HQ tools (Big Board, Draft Room, Pick Plan, Trade, League, Visual Lab, Compare, Lock-In Lab, Scoring & Model) plus a Season tab (Sleeper NBA leagues, calendar, Lock-In helper, rules, lottery) |
+| `basketball/season.js`, `season.css` | The Season tab |
+| `basketball/draft-hq.html` | Forwards old links to `index.html` |
 | `assets/` | Shared theme (`hub.css`) and helpers (`fx.js`) |
 
 ## Data
