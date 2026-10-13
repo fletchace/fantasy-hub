@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Football HQ</title>
+<meta name="description" content="Weekly tools for my Sleeper leagues plus dynasty prep for 2027.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><ellipse cx='32' cy='32' rx='28' ry='17' fill='%238a4520' transform='rotate(-30 32 32)'/><path d='M22 38l20-12M27 36l-3-4M32 33l-3-4M37 30l-3-4' stroke='white' stroke-width='3'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Graduate&family=Barlow:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/hub.css">
+<style>
+/* Football HQ: page hero + playbook tabs. Every panel is a chalk card on turf; league matchups read like jumbotrons. */
+.connect{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px}
+@media (max-width:900px){.connect{grid-template-columns:minmax(0,1fr)}}
+.connect .big{font:900 clamp(30px,4vw,46px)/.95 var(--font-display);text-transform:uppercase;margin:8px 0}
+.connect form{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.connect input[type=text]{flex:1 1 220px;font-size:17px;min-height:48px}
+.connect .btn{min-height:48px}
+.mcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+@media (max-width:420px){.mcards{grid-template-columns:minmax(0,1fr)}}
+.mcard{cursor:pointer;transition:border-color .2s,transform .25s}
+.mcard:hover{border-color:var(--lime)}
+.mcard .lgname{font:800 15px/1.2 var(--font-body);letter-spacing:.3px;color:var(--chalk-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center;margin:14px 0 10px}
+.vs .side{min-width:0}
+.vs .side.r{text-align:right}
+.vs .tm{font:800 15px/1.2 var(--font-display);text-transform:uppercase;letter-spacing:.6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vs .sc{font:400 40px/1 var(--font-jersey);color:var(--chalk)}
+.vs .side.me .sc{color:var(--gold);text-shadow:0 0 16px rgba(250,204,21,.35)}
+.vs .pj{font-size:12px;color:var(--muted)}
+.vs .mid{font:900 18px/1 var(--font-display);color:var(--muted)}
+.wp{position:relative;height:12px;border-radius:999px;background:rgba(244,63,94,.35);overflow:hidden}
+.wp i{position:absolute;inset:0 auto 0 0;width:50%;background:linear-gradient(90deg,var(--lime),var(--neon));border-radius:999px;transition:width 1.2s cubic-bezier(.2,.9,.3,1)}
+.wp b{position:absolute;top:50%;width:18px;height:11px;margin-left:-9px;transform:translateY(-50%) rotate(-12deg);border-radius:50%;background:#8a4520;box-shadow:0 0 0 1px #fff3;transition:left 1.2s cubic-bezier(.2,.9,.3,1)}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.18);margin-bottom:8px;font-size:14px}
+.alert .k{flex:none;font:900 12px/1 var(--font-display);letter-spacing:1.4px;padding:4px 8px;border-radius:6px;text-transform:uppercase}
+.alert.out{border-left:3px solid var(--flag)} .alert.out .k{background:rgba(244,63,94,.2);color:#fda4af}
+.alert.bye{border-left:3px solid var(--sky)} .alert.bye .k{background:rgba(56,189,248,.2);color:#bae6fd}
+.alert.q{border-left:3px solid var(--warn)} .alert.q .k{background:rgba(251,191,36,.2);color:#fde68a}
+.alert.up{border-left:3px solid var(--lime)} .alert.up .k{background:rgba(163,230,53,.2);color:#d9f99d}
+.alert.ok{border-left:3px solid var(--neon)} .alert.ok .k{background:rgba(74,222,128,.2);color:#bbf7d0}
+.lgchips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.lgchips button{border:1px solid var(--line-strong);background:rgba(0,0,0,.25);color:var(--chalk-2);border-radius:999px;padding:7px 14px;font-weight:800;font-size:13px;cursor:pointer;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lgchips button.on{background:var(--gold);color:var(--gold-ink);border-color:transparent}
+.slot{display:grid;grid-template-columns:62px minmax(0,1fr) 70px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
+.slot:last-child{border-bottom:0}
+.slot .pts{text-align:right;font:400 17px/1 var(--font-jersey)}
+.slot .pts small{display:block;font:600 11px/1.4 var(--font-body);color:var(--muted)}
+.h2h{display:grid;grid-template-columns:minmax(0,1fr) 54px minmax(0,1fr);gap:4px 8px;align-items:center}
+.h2h .c{font:800 11px/1 var(--font-body);color:var(--muted);text-align:center;letter-spacing:.8px}
+.h2h .p{display:flex;align-items:center;gap:8px;min-width:0;padding:5px 0;border-bottom:1px dashed var(--line)}
+.h2h .p.r{flex-direction:row-reverse;text-align:right}
+.h2h .p b{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.h2h .p span.v{margin-left:auto;font:400 15px/1 var(--font-jersey)}
+.h2h .p.r span.v{margin-left:0;margin-right:auto}
+.lineup{display:grid;grid-template-columns:62px minmax(0,1fr) 34px minmax(0,1fr);gap:8px;align-items:center}
+.lineup .hd{font:800 11px/1 var(--font-body);letter-spacing:1.2px;color:var(--muted);text-transform:uppercase;padding:4px 0}
+.lineup .cell{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.2);border:1px solid var(--line)}
+.lineup .cell.chg{border-color:var(--lime);background:rgba(163,230,53,.09);box-shadow:0 0 18px -8px var(--lime)}
+.lineup .cell.bad{border-color:rgba(244,63,94,.6);background:rgba(244,63,94,.08)}
+.lineup .cell b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.lineup .cell .v{margin-left:auto;font:400 15px/1 var(--font-jersey);flex:none}
+.lineup .arr{text-align:center;color:var(--muted);font-weight:900}
+.lineup .arr.go{color:var(--lime);animation:nudge 1s ease-in-out infinite}
+@keyframes nudge{50%{transform:translateX(4px)}}
+@media (max-width:640px){.lineup{grid-template-columns:48px minmax(0,1fr) 22px minmax(0,1fr);gap:6px}.lineup .cell{padding:6px}.lineup .cell .ph{display:none}}
+.bigdelta{font:400 clamp(44px,6vw,72px)/1 var(--font-jersey);color:var(--gold);text-shadow:0 0 30px rgba(250,204,21,.4)}
+.cmpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:12px}
+.cmp{position:relative;padding:14px;border-radius:16px;background:rgba(0,0,0,.22);border:1px solid var(--line);text-align:center;overflow:hidden}
+.cmp .ph{width:72px;height:72px;margin:0 auto 8px}
+.cmp .v{font:400 34px/1 var(--font-jersey);margin:8px 0 2px}
+.cmp .meter{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:8px}
+.cmp .meter i{display:block;height:100%;background:var(--lime);border-radius:999px;transition:width 1s cubic-bezier(.2,.9,.3,1)}
+.cmp .stamp{position:absolute;top:14px;right:-34px;transform:rotate(35deg);background:var(--lime);color:#0b1a00;font:900 13px/1 var(--font-display);letter-spacing:2px;padding:6px 40px;animation:stamp .5s cubic-bezier(.2,1.6,.4,1)}
+.cmp .stamp.sit{background:var(--flag);color:#fff}
+@keyframes stamp{from{transform:rotate(35deg) scale(2.2);opacity:0}to{transform:rotate(35deg) scale(1);opacity:1}}
+.cmp .x{position:absolute;top:8px;left:8px}
+.picker{position:relative}
+.picker .dd{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;max-height:320px;overflow:auto;background:var(--thead);border:1px solid var(--line-strong);border-radius:12px;box-shadow:var(--shadow);display:none}
+.picker .dd.on{display:block}
+.picker .dd button{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border:0;background:none;color:var(--chalk);cursor:pointer;text-align:left;font-size:14px}
+.picker .dd button:hover,.picker .dd button.hi{background:rgba(163,230,53,.12)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{padding:12px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--line);min-width:0}
+.kpi .l{font:800 10.5px/1.2 var(--font-body);letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font:400 28px/1.15 var(--font-jersey);color:var(--chalk);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpi .s{font-size:12.5px;color:var(--chalk-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.valbar{position:relative;height:8px;min-width:90px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
+.valbar i{position:absolute;inset:0 auto 0 0;border-radius:999px;background:linear-gradient(90deg,var(--neon),var(--gold))}
+#boardTable td{padding:6px 12px}
+#boardTable tbody tr{cursor:pointer}
+.chartwrap{position:relative;height:380px}
+.chartwrap canvas{position:absolute;inset:0;width:100%;height:100%}
+.legend{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:12.5px;color:var(--chalk-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+/* trade */
+.tradecols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:860px){.tradecols{grid-template-columns:minmax(0,1fr)}}
+.titem{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);animation:snap .35s}
+.titem .v{margin-left:auto;font:400 17px/1 var(--font-jersey);color:var(--gold)}
+.ttotal{display:flex;align-items:baseline;gap:10px;margin-top:12px}
+.ttotal b{font:400 34px/1 var(--font-jersey)}
+.minifield{position:relative;height:84px;border-radius:16px;overflow:hidden;border:2px solid rgba(255,255,255,.5);background:repeating-linear-gradient(90deg,#17713a 0 9.09%,#145f31 9.09% 18.18%)}
+.minifield::before,.minifield::after{content:"";position:absolute;top:0;bottom:0;width:9.09%;background:#0d4a26}
+.minifield::before{left:0} .minifield::after{right:0}
+.minifield .ez{position:absolute;top:0;bottom:0;width:9.09%;display:grid;place-items:center;z-index:1;font:900 12px/1 var(--font-display);letter-spacing:2px;color:#fff9;writing-mode:vertical-rl}
+.minifield .ez.l{left:0;transform:rotate(180deg)} .minifield .ez.r{right:0}
+.minifield .mid{position:absolute;left:50%;top:0;bottom:0;width:3px;margin-left:-1.5px;background:rgba(255,255,255,.8)}
+.minifield .fair{position:absolute;top:0;bottom:0;left:45%;width:10%;background:rgba(250,204,21,.16)}
+.minifield .fb{position:absolute;top:50%;left:50%;width:40px;height:24px;margin:-12px 0 0 -20px;transition:left 1.2s cubic-bezier(.2,.9,.3,1.1);z-index:2;filter:drop-shadow(0 4px 6px rgba(0,0,0,.5))}
+.verdict{font:900 clamp(28px,3.4vw,40px)/1 var(--font-display);text-transform:uppercase;letter-spacing:1px;margin-top:14px}
+/* mock draft */
+.mockgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:16px;align-items:start}
+@media (max-width:1050px){.mockgrid{grid-template-columns:minmax(0,1fr)}}
+.otc{position:relative;padding:18px;border-radius:20px;overflow:hidden;background:linear-gradient(135deg,#0f4a24,#072011);border:1px solid var(--line)}
+.otc.mine{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 40px -10px var(--gold)}
+.otc .big{font:900 clamp(30px,3.6vw,46px)/.95 var(--font-display);text-transform:uppercase;margin:6px 0}
+.otc.mine .big{color:var(--gold);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.6}}
+.avail{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:14px;background:rgba(0,0,0,.18)}
+.avail .it{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer}
+.avail .it:hover{background:rgba(163,230,53,.08)}
+.avail .it .rk{width:32px;font:700 12px var(--font-mono);color:var(--muted);flex:none}
+.avail .it .v{margin-left:auto;text-align:right;font-size:12px;color:var(--muted);flex:none}
+.dboard{overflow:auto;max-height:640px;border:1px solid var(--line);border-radius:14px}
+.dboard table{font-size:12px}
+.dboard td,.dboard th{padding:4px;min-width:96px;max-width:120px;white-space:normal;vertical-align:top;border-right:1px solid var(--line)}
+.dboard thead th{text-align:center}
+.dboard thead th.me{color:var(--gold);box-shadow:inset 0 -3px 0 var(--gold)}
+.dboard tbody th{position:sticky;left:0;z-index:1;background:var(--thead);min-width:40px;text-align:center;font:700 12px var(--font-mono);color:var(--muted)}
+.dcell{border-radius:8px;padding:4px 6px;min-height:38px;line-height:1.2;border-left:3px solid var(--pc,transparent);background:color-mix(in srgb,var(--pc,#000) 16%,transparent)}
+.dcell b{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.dcell small{color:var(--chalk-2);font-size:10.5px}
+.dcell.now{outline:2px dashed var(--gold);outline-offset:-2px;background:rgba(250,204,21,.08)}
+.dcell.fresh{animation:land .6s cubic-bezier(.2,1.5,.4,1)}
+@keyframes land{from{transform:scale(1.6);opacity:0}to{transform:none;opacity:1}}
+.gradebig{font:400 clamp(80px,10vw,130px)/.9 var(--font-jersey);color:var(--gold);text-shadow:0 0 40px rgba(250,204,21,.5);animation:stamp2 .7s cubic-bezier(.2,1.6,.4,1)}
+@keyframes stamp2{from{transform:scale(2.5) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
+/* plan */
+.cd{font:400 clamp(26px,3vw,36px)/1.1 var(--font-jersey);color:var(--gold);text-shadow:0 0 18px rgba(250,204,21,.35)}
+.agesvg{width:100%;height:auto}
+.agesvg path.c{fill:none;stroke-width:3.5;stroke-linecap:round;stroke-dasharray:1200;stroke-dashoffset:1200}
+.agesvg.in path.c{animation:draw2 2.2s ease forwards}
+@keyframes draw2{to{stroke-dashoffset:0}}
+.strat{display:flex;flex-direction:column;gap:8px}
+.strat .top5{font-size:13px;color:var(--chalk-2);line-height:1.6}
+.check{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px dashed var(--line);cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--lime);margin-top:2px;flex:none}
+.check.done span{text-decoration:line-through;color:var(--muted)}
+.progfield{position:relative;height:30px;border-radius:999px;background:repeating-linear-gradient(90deg,#145f31 0 10%,#17713a 10% 20%);border:2px solid rgba(255,255,255,.4);margin:10px 0 4px;overflow:hidden}
+.progfield .fb{position:absolute;top:50%;width:30px;height:18px;margin:-9px 0 0 -15px;transition:left 1s cubic-bezier(.2,.9,.3,1.1)}
+.progfield i{position:absolute;inset:0 auto 0 0;background:rgba(250,204,21,.25);transition:width 1s cubic-bezier(.2,.9,.3,1.1)}
+.wl .it{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
+.tier-pill{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;font:400 16px/1 var(--font-jersey);background:rgba(250,204,21,.14);color:var(--gold)}
+.mstat{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:12px}
+.mstat div{padding:9px 11px;border-radius:12px;background:rgba(0,0,0,.22);border:1px solid var(--line)}
+.mstat .l{display:block;font:800 10px/1.2 var(--font-body);letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
+.mstat b{display:block;font:400 19px/1.2 var(--font-jersey);margin-top:3px}
+</style>
+</head>
+<body class="theme-fb">
+<header class="topnav">
+  <div class="wrap">
+    <a class="logo" href="../index.html" aria-label="Fantasy Hub home">
+      <svg class="ball" viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="32" rx="28" ry="17" fill="#8a4520" transform="rotate(-30 32 32)"/><path d="M23 38l18-12M27 37l-3-4M32 34l-3-4M37 31l-3-4" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>
+      <span>Fantasy Hub<small>Fletch's war room</small></span>
+    </a>
+    <nav class="navlinks" aria-label="Main">
+      <a href="../index.html">Hub</a>
+      <a href="index.html" aria-current="page">Football HQ</a>
+      <a href="../basketball/index.html">Basketball HQ</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="phero">
+    <canvas class="bg" id="heroCv" aria-hidden="true"></canvas>
+    <div class="eyebrow">2026 season · dynasty prep for 2027</div>
+    <h1>Football <em>HQ</em></h1>
+    <p>Your Sleeper leagues scored with each league's own settings, plus a dynasty war room for next year built on live Sleeper dynasty ADP.</p>
+    <div class="scoreboard">
+      <div><span class="l">NFL</span><b id="hbWeek">WEEK –</b></div>
+      <div><span class="l">Next kickoff</span><b id="hbKick">--:--:--</b></div>
+      <div><span class="l">Your leagues</span><b class="w" id="hbLeagues">0</b></div>
+      <div><span class="l">Combined record</span><b class="w" id="hbRecord">0-0</b></div>
+      <div><span class="l">Lineup alerts</span><b id="hbAlerts">–</b></div>
+    </div>
+  </section>
+
+  <nav class="tabs" role="tablist" aria-label="Football HQ sections" id="tabs">
+    <button role="tab" data-v="gameday" aria-selected="true">🏟️ Gameday</button>
+    <button role="tab" data-v="leagues" aria-selected="false">🏆 Leagues</button>
+    <button role="tab" data-v="startsit" aria-selected="false">🔁 Start / Sit</button>
+    <button role="tab" data-v="waivers" aria-selected="false">📡 Waivers</button>
+    <button role="tab" data-v="dynasty" aria-selected="false">👑 Dynasty Board</button>
+    <button role="tab" data-v="trade" aria-selected="false">⚖️ Trade Lab</button>
+    <button role="tab" data-v="mock" aria-selected="false">🎯 Mock Startup</button>
+    <button role="tab" data-v="plan" aria-selected="false">🗓️ Dynasty Plan</button>
+  </nav>
+
+  <!-- GAMEDAY -->
+  <section class="view on" id="v-gameday" role="tabpanel">
+    <div id="connectBox"></div>
+    <div id="gamedayBody"></div>
+  </section>
+
+  <!-- LEAGUES -->
+  <section class="view" id="v-leagues" role="tabpanel">
+    <div class="vhead"><div><h2>Leagues</h2><div class="sub">Standings, your roster and this week's head-to-head for each league.</div></div></div>
+    <div class="lgchips" id="lgChipsL"></div>
+    <div id="leagueBody"></div>
+  </section>
+
+  <!-- START / SIT -->
+  <section class="view" id="v-startsit" role="tabpanel">
+    <div class="vhead"><div><h2>Start / Sit</h2><div class="sub">The best lineup for each league's scoring, using Sleeper's weekly projections. Players who are out or on bye get flagged and benched.</div></div><span class="sp"></span>
+      <label class="f">Week<select id="ssWeek"></select></label></div>
+    <div class="lgchips" id="lgChipsS"></div>
+    <div id="ssBody"></div>
+    <div class="yard"><span>5 0</span></div>
+    <div class="card hash">
+      <div class="head"><h3>Head-to-head compare</h3><span class="sp"></span><span class="sub" id="cmpScoring"></span></div>
+      <div class="sub">Pick up to four players for a quick start/sit call this week.</div>
+      <div class="picker" style="max-width:420px;margin-top:12px"><label class="vh" for="cmpSearch">Add a player</label><input type="search" id="cmpSearch" placeholder="Add a player…" style="width:100%" autocomplete="off"><div class="dd" id="cmpDD"></div></div>
+      <div class="cmpgrid" id="cmpGrid"></div>
+    </div>
+  </section>
+
+  <!-- WAIVERS -->
+  <section class="view" id="v-waivers" role="tabpanel">
+    <div class="vhead"><div><h2>Waiver Radar</h2><div class="sub">Who's trending on Sleeper and still free in your league, plus the best available players by this week's projection.</div></div></div>
+    <div class="lgchips" id="lgChipsW"></div>
+    <div id="wvBody"></div>
+  </section>
+
+  <!-- DYNASTY BOARD -->
+  <section class="view" id="v-dynasty" role="tabpanel">
+    <div class="vhead"><div><h2>Dynasty Board</h2><div class="sub" id="dynSub">Live Sleeper dynasty ADP turned into trade values, then re-ranked for age and your contention window.</div></div><span class="sp"></span>
+      <button class="btn small" id="dynCsv">Export CSV</button></div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="row" style="gap:14px 22px">
+        <div><div class="eyebrow" style="margin-bottom:6px">Format</div><div class="chips" id="dynFmt"><button data-f="sf">Superflex</button><button data-f="1qb">1QB</button></div></div>
+        <div style="flex:1 1 280px"><div class="row"><span class="eyebrow">Window</span><span class="sp"></span><b id="hzLabel" style="font-family:var(--font-display);letter-spacing:1px;text-transform:uppercase">Balanced</b></div>
+          <div class="row" style="flex-wrap:nowrap;margin-top:4px"><span class="sub" style="font-size:12px">Win now</span><input type="range" id="dynHz" min="-100" max="100" step="5" aria-label="Contention window"><span class="sub" style="font-size:12px">Rebuild</span></div></div>
+        <label class="row" style="cursor:pointer;gap:8px"><input type="checkbox" id="dynTep" style="width:18px;height:18px;accent-color:var(--gold)"> <span class="sub">TE premium</span></label>
+      </div>
+    </div>
+    <div class="kpis" id="dynKpis"></div>
+    <div class="row" style="margin-bottom:10px">
+      <label class="vh" for="dynSearch">Search players</label><input type="search" id="dynSearch" placeholder="Search players or NFL teams…" style="min-width:230px">
+      <div class="chips" id="dynPos"><button data-p="ALL" class="on">All</button><button data-p="QB">QB</button><button data-p="RB">RB</button><button data-p="WR">WR</button><button data-p="TE">TE</button></div>
+      <div class="chips" id="dynShow"><button data-s="all" class="on">Everyone</button><button data-s="T">★ Targets</button><button data-s="R">Rookies</button><button data-s="Y">Under 25</button></div>
+      <span class="sp"></span><span class="sub" id="dynCount"></span>
+    </div>
+    <div class="tablewrap" style="max-height:72vh"><table id="boardTable"><thead><tr><th>#</th><th></th><th>Player</th><th class="r">Age</th><th class="r">ADP</th><th class="r">vs ADP</th><th>Value</th><th class="r">Peak yrs left</th><th class="r">'26 proj</th></tr></thead><tbody id="boardBody"></tbody></table></div>
+    <div class="yard"><span>4 0</span></div>
+    <div class="card hash">
+      <div class="head"><h3>Value vs age</h3><span class="sp"></span><div class="legend"><span><i style="background:var(--qb)"></i>QB</span><span><i style="background:var(--rb)"></i>RB</span><span><i style="background:var(--wr)"></i>WR</span><span><i style="background:var(--te)"></i>TE</span></div></div>
+      <div class="sub">The top 150 on your board. Top-left is the sweet spot: young and valuable. Click a dot for the player card.</div>
+      <div class="chartwrap"><canvas id="scatter" role="img" aria-label="Scatter chart of dynasty value against age for the top 150 players"></canvas></div>
+    </div>
+  </section>
+
+  <!-- TRADE LAB -->
+  <section class="view" id="v-trade" role="tabpanel">
+    <div class="vhead"><div><h2>Trade Lab</h2><div class="sub">Stack players and rookie picks on each side. Values come from your Dynasty Board settings, and the stud adjustment rewards the side getting the best player.</div></div><span class="sp"></span><button class="btn small" id="trClear">Clear</button></div>
+    <div class="tradecols">
+      <div class="card hash"><div class="head"><h3>You give</h3><span class="sp"></span></div><div class="picker"><label class="vh" for="trA">Add to the side you give</label><input type="search" id="trA" placeholder="Add a player or pick…" style="width:100%" autocomplete="off"><div class="dd"></div></div><div id="trListA" style="margin-top:8px"></div><div class="ttotal"><span class="sub">Total</span><b id="trTotA">0</b><span class="sub" id="trAdjA"></span></div></div>
+      <div class="card hash"><div class="head"><h3>You get</h3><span class="sp"></span></div><div class="picker"><label class="vh" for="trB">Add to the side you get</label><input type="search" id="trB" placeholder="Add a player or pick…" style="width:100%" autocomplete="off"><div class="dd"></div></div><div id="trListB" style="margin-top:8px"></div><div class="ttotal"><span class="sub">Total</span><b id="trTotB">0</b><span class="sub" id="trAdjB"></span></div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="minifield" aria-hidden="true"><div class="ez l">YOU GIVE</div><div class="fair"></div><div class="mid"></div><div class="ez r">YOU GET</div>
+        <svg class="fb" id="trBall" viewBox="0 0 64 40"><ellipse cx="32" cy="20" rx="30" ry="18" fill="#8a4520"/><path d="M20 20h24M24 15v10M29 15v10M34 15v10M39 15v10" stroke="#fff" stroke-width="2.6"/></svg></div>
+      <div class="row"><div class="verdict" id="trVerdict">Add players to start</div><span class="sp"></span><button class="btn gold" id="trSend" disabled>Send it 🤝</button></div>
+      <div class="sub" id="trHint" style="margin-top:6px"></div>
+    </div>
+  </section>
+
+  <!-- MOCK -->
+  <section class="view" id="v-mock" role="tabpanel">
+    <div class="vhead"><div><h2>Mock Startup</h2><div class="sub">A full dynasty startup against computer drafters who pick off Sleeper's dynasty ADP with human-style randomness. Your list is sorted by your own board.</div></div></div>
+    <div class="card" id="mockSetup" style="margin-bottom:16px">
+      <div class="row" style="gap:12px 18px;align-items:flex-end">
+        <label class="f">Teams<select id="mkTeams"><option>8</option><option>10</option><option selected>12</option><option>14</option></select></label>
+        <label class="f">Rounds<select id="mkRounds"><option>10</option><option selected>15</option><option>20</option><option>25</option></select></label>
+        <label class="f">Your slot<select id="mkSlot"></select></label>
+        <label class="f">Format<select id="mkFmt"><option value="sf">Superflex</option><option value="1qb">1QB</option></select></label>
+        <label class="row" style="cursor:pointer;gap:8px;min-height:var(--hit)"><input type="checkbox" id="mkRev" checked style="width:18px;height:18px;accent-color:var(--gold)"><span class="sub">3rd-round reversal</span></label>
+        <span class="sp"></span>
+        <button class="btn gold" id="mkStart">Start the draft</button>
+      </div>
+    </div>
+    <div id="mockBody"></div>
+  </section>
+
+  <!-- PLAN -->
+  <section class="view" id="v-plan" role="tabpanel">
+    <div class="vhead"><div><h2>Dynasty Plan</h2><div class="sub">Everything to get ready for next year's dynasty league: key dates, your league blueprint, age windows, strategy and a 2027 rookie watchlist.</div></div></div>
+    <div class="grid g3" id="planCds"></div>
+    <div class="yard"><span>1 0</span></div>
+    <div class="grid g2">
+      <div class="card hash" id="blueprint"></div>
+      <div class="card hash">
+        <div class="head"><h3>Age windows</h3></div>
+        <div class="sub">How production tends to rise and fall with age, scaled to each position's peak. Running backs peak early and fall fast; quarterbacks last the longest.</div>
+        <svg class="agesvg" id="ageSvg" viewBox="0 0 560 300" role="img" aria-label="Age curve chart for QB, RB, WR and TE"></svg>
+        <div class="legend" style="margin-top:6px"><span><i style="background:var(--qb)"></i>QB peak 26–33</span><span><i style="background:var(--rb)"></i>RB peak 22–26</span><span><i style="background:var(--wr)"></i>WR peak 24–29</span><span><i style="background:var(--te)"></i>TE peak 25–30</span></div>
+      </div>
+    </div>
+    <div class="yard"><span>2 0</span></div>
+    <div class="vhead" style="margin-bottom:10px"><div><h2 style="font-size:34px">Startup strategies</h2><div class="sub">Each card shows the top 5 on your board under that approach. Apply one to re-rank the Dynasty Board.</div></div></div>
+    <div class="grid g4" id="strats"></div>
+    <div class="yard"><span>3 0</span></div>
+    <div class="grid g2">
+      <div class="card hash">
+        <div class="head"><h3>2027 rookie watchlist</h3><span class="sp"></span><span class="tag q">verify eligibility</span></div>
+        <div class="sub">College players I'd been tracking as of mid-2026. Declarations, injuries and transfers change fast, so treat this as a starting list and edit it as the season plays out.</div>
+        <div class="wl" id="watchList" style="margin-top:8px"></div>
+        <form class="row" id="wlForm" style="margin-top:12px">
+          <input type="text" id="wlName" placeholder="Name" required style="flex:1 1 150px">
+          <select id="wlPos"><option>QB</option><option>RB</option><option selected>WR</option><option>TE</option></select>
+          <input type="text" id="wlSchool" placeholder="School" style="flex:1 1 110px">
+          <button class="btn small lime" type="submit">Add</button>
+        </form>
+      </div>
+      <div class="card hash">
+        <div class="head"><h3>Prep checklist</h3><span class="sp"></span><b id="ckPct" style="font-family:var(--font-jersey);color:var(--gold)">0%</b></div>
+        <div class="progfield" aria-hidden="true"><i id="ckBar"></i><svg class="fb" id="ckBall" viewBox="0 0 64 40"><ellipse cx="32" cy="20" rx="30" ry="18" fill="#8a4520"/><path d="M20 20h24M24 15v10M29 15v10M34 15v10M39 15v10" stroke="#fff" stroke-width="2.6"/></svg></div>
+        <div id="checklist"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Player card"></div></div>
+<footer class="foot">Data: the public <a href="https://docs.sleeper.com/" target="_blank" rel="noopener">Sleeper API</a> (leagues, rosters, matchups, trending, schedule) and Sleeper's projections and dynasty ADP feeds, refreshed when you open the page. Player bios come from a snapshot built <span id="snapDate"></span>. Your settings, flags and watchlist are saved in this browser only.</footer>
+
+<script src="../assets/fx.js"></script>
+<script src="nfl-snapshot.js"></script>
+<script src="football.js"></script>
+<script src="dynasty.js"></script>
+</body>
+</html>

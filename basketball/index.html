@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Basketball HQ</title>
+<meta name="description" content="Dynasty basketball: draft HQ, season calendar, Lock-In helper and lottery.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='28' fill='%23e8590c'/><g fill='none' stroke='%233b1404' stroke-width='3'><path d='M4 32h56M32 4v56M13 12c9 8 9 32 0 40M51 12c-9 8-9 32 0 40'/></g></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Graduate&family=Barlow:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/hub.css">
+<style>
+/* Basketball HQ: same night turf, with ball-orange as the second accent. Hero has a looping jump shot into an SVG hoop. */
+.phero.bb h1 em{background:linear-gradient(180deg,#ffd0a8,#ff8a45 55%,#c2410c);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 22px rgba(255,122,46,.4))}
+.phero.bb .scoreboard b{color:var(--orange);text-shadow:0 0 14px rgba(255,122,46,.4)}
+.heroflex{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:20px;align-items:center}
+@media (max-width:860px){.heroflex{grid-template-columns:minmax(0,1fr)}.shot{display:none}}
+.shot{position:relative;height:230px}
+.shot .hoop{position:absolute;right:10px;top:10px;width:150px}
+.shot .bx{position:absolute;left:0;bottom:6px;width:34px;height:34px;animation:shotx 2.6s cubic-bezier(.3,0,.7,1) infinite}
+.shot .by{width:34px;height:34px;animation:shoty 2.6s infinite}
+.shot .by svg{width:34px;height:34px;animation:spin 2.6s linear infinite}
+@keyframes shotx{0%,8%{transform:translateX(0)}55%{transform:translateX(178px)}100%{transform:translateX(178px)}}
+@keyframes shoty{0%,8%{transform:translateY(0);animation-timing-function:cubic-bezier(.2,.7,.4,1)}32%{transform:translateY(-200px);animation-timing-function:cubic-bezier(.6,0,.8,.4)}55%{transform:translateY(-118px)}72%{transform:translateY(0);animation-timing-function:cubic-bezier(.2,.7,.4,1)}80%{transform:translateY(-40px);animation-timing-function:cubic-bezier(.6,0,.8,.4)}88%,100%{transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(-720deg)}}
+.shot .net{transform-origin:50% 0;animation:swish 2.6s infinite}
+@keyframes swish{0%,54%{transform:scaleY(1)}60%{transform:scaleY(1.25) scaleX(.9)}68%,100%{transform:scaleY(1)}}
+.shot .pts{position:absolute;right:40px;top:0;font:900 26px/1 var(--font-display);color:var(--orange);opacity:0;animation:pts 2.6s infinite;text-shadow:0 0 16px rgba(255,122,46,.6)}
+@keyframes pts{0%,56%{opacity:0;transform:translateY(10px)}62%{opacity:1;transform:none}80%{opacity:0;transform:translateY(-14px)}100%{opacity:0}}
+.hqdoor{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-items:center;text-decoration:none;color:var(--chalk);padding:24px;border-radius:24px;border:1px solid var(--line-strong);background:radial-gradient(400px 200px at var(--mx,80%) var(--my,10%),rgba(255,122,46,.25),transparent 70%),repeating-linear-gradient(90deg,rgba(0,0,0,.14) 0 1px,transparent 1px 44px),linear-gradient(135deg,#a3561f 0%,#6b3210 55%,#3a1606 100%);box-shadow:var(--shadow)}
+@media (max-width:820px){.hqdoor{grid-template-columns:minmax(0,1fr)}}
+.hqdoor h2{font-size:clamp(38px,5vw,60px);text-transform:uppercase;line-height:.9}
+.hqdoor h2 span{color:var(--orange)}
+.hqdoor .court{width:100%;height:auto;opacity:.9}
+.prog{height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:10px}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff8a45,var(--gold));border-radius:999px;transition:width 1.4s cubic-bezier(.2,.9,.3,1)}
+.timeline{position:relative;margin:30px 6px 10px;height:110px}
+.timeline .track{position:absolute;left:0;right:0;top:48px;height:8px;border-radius:999px;background:rgba(255,255,255,.08)}
+.timeline .fill{position:absolute;left:0;top:48px;height:8px;width:0;border-radius:999px;background:linear-gradient(90deg,var(--orange),var(--gold));transition:width 1.6s cubic-bezier(.2,.9,.3,1)}
+.timeline .mk{position:absolute;top:30px;transform:translateX(-50%);text-align:center;width:110px}
+.timeline .mk i{display:block;width:16px;height:16px;margin:10px auto 0;border-radius:50%;background:var(--surface-solid);border:3px solid var(--orange)}
+.timeline .mk b{display:block;font:800 13px/1.15 var(--font-display);letter-spacing:.6px;text-transform:uppercase;margin-top:8px}
+.timeline .mk small{display:block;font-size:11.5px;color:var(--muted)}
+.timeline .mk.up{top:-18px}.timeline .mk.up i{margin:0 auto;position:absolute;left:47px;top:56px}.timeline .mk.up b{margin:0}
+.timeline .now{position:absolute;top:22px;transform:translateX(-50%);font:900 11px/1 var(--font-display);letter-spacing:1.6px;color:var(--gold);transition:left 1.6s cubic-bezier(.2,.9,.3,1)}
+.timeline .now::after{content:"";display:block;width:2px;height:40px;margin:4px auto 0;background:var(--gold)}
+@media (max-width:760px){.timeline{height:auto;margin:10px 0}.timeline .track,.timeline .fill,.timeline .now{display:none}.timeline .mk,.timeline .mk.up{position:static;transform:none;width:auto;text-align:left;display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}.timeline .mk i,.timeline .mk.up i{position:static;margin:0;flex:none}.timeline .mk b{margin:0}}
+.steps{counter-reset:s;display:grid;gap:10px}
+.step{display:flex;gap:12px;align-items:flex-start}
+.step::before{counter-increment:s;content:counter(s);flex:none;width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:rgba(255,122,46,.15);color:var(--orange);font:400 15px/1 var(--font-jersey)}
+.lockmeter{position:relative;height:16px;border-radius:999px;background:linear-gradient(90deg,rgba(244,63,94,.35),rgba(250,204,21,.3),rgba(163,230,53,.35));margin:16px 0 6px}
+.lockmeter b{position:absolute;top:50%;width:4px;height:28px;margin:-14px 0 0 -2px;background:var(--chalk);border-radius:2px;transition:left .6s cubic-bezier(.2,.9,.3,1.2)}
+.lockmeter i{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--gold);transition:left .6s}
+.lockverdict{font:900 clamp(30px,4vw,44px)/1 var(--font-display);text-transform:uppercase;letter-spacing:1px;margin-top:10px}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
+.sgrid div{padding:8px;border-radius:12px;background:rgba(0,0,0,.22);border:1px solid var(--line);text-align:center}
+.sgrid b{display:block;font:400 22px/1 var(--font-jersey);color:var(--orange)}
+.sgrid span{font:800 10.5px/1.3 var(--font-body);letter-spacing:1.2px;color:var(--muted);text-transform:uppercase}
+.drumwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.drumwrap{grid-template-columns:minmax(0,1fr)}}
+#drum{width:100%;max-width:380px;aspect-ratio:1;display:block;margin:0 auto}
+.lotteam{display:grid;grid-template-columns:20px minmax(0,1fr) 54px;gap:8px;align-items:center;margin-bottom:8px}
+.lotteam i{width:16px;height:16px;border-radius:50%}
+.lotteam input{width:100%}
+.lotteam span{text-align:right;font:400 15px/1 var(--font-jersey)}
+.lotres{display:grid;gap:8px;margin-top:12px}
+.lotcard{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:14px;background:rgba(0,0,0,.25);border:1px solid var(--line);animation:flipin .6s cubic-bezier(.2,1.4,.4,1)}
+.lotcard .n{font:400 30px/1 var(--font-jersey);width:46px;color:var(--orange)}
+.lotcard:first-child{border-color:var(--gold);box-shadow:0 0 30px -10px var(--gold)}
+.lotcard:first-child .n{color:var(--gold)}
+@keyframes flipin{from{transform:rotateX(90deg);opacity:0}to{transform:none;opacity:1}}
+.nbacards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.mstat{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:10px}
+.mstat div{padding:9px 11px;border-radius:12px;background:rgba(0,0,0,.22);border:1px solid var(--line)}
+.mstat .l{display:block;font:800 10px/1.2 var(--font-body);letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
+.mstat b{display:block;font:400 19px/1.2 var(--font-jersey);margin-top:3px}
+</style>
+</head>
+<body class="theme-bb">
+<header class="topnav">
+  <div class="wrap">
+    <a class="logo" href="../index.html" aria-label="Fantasy Hub home">
+      <svg class="ball" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" fill="#e8590c"/><g fill="none" stroke="#3b1404" stroke-width="3.2"><path d="M5 32h54M32 5v54M13 12c9 8 9 32 0 40M51 12c-9 8-9 32 0 40"/></g></svg>
+      <span>Fantasy Hub<small>Fletch's war room</small></span>
+    </a>
+    <nav class="navlinks" aria-label="Main">
+      <a href="../index.html">Hub</a>
+      <a href="../football/index.html">Football HQ</a>
+      <a href="index.html" aria-current="page">Basketball HQ</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="phero bb">
+    <canvas class="bg" id="heroCv" aria-hidden="true"></canvas>
+    <div class="heroflex">
+      <div>
+        <div class="eyebrow" style="color:var(--orange)">Dynasty · Sleeper · Lock-In · 10 teams</div>
+        <h1>Basketball <em>HQ</em></h1>
+        <p>Your startup draft war room, plus everything for the season after it: the league calendar, a Lock-In helper, the rules at a glance and the rookie lottery.</p>
+      </div>
+      <div class="shot" aria-hidden="true">
+        <svg class="hoop" viewBox="0 0 150 160"><rect x="20" y="0" width="120" height="78" rx="6" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.7)" stroke-width="3"/><rect x="58" y="34" width="44" height="32" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="3"/><rect x="132" y="70" width="10" height="90" fill="rgba(255,255,255,.15)"/>
+          <g class="net"><path d="M52 84l6 40h44l6-40M58 84l10 40M70 84l6 40M82 84l2 40M94 84l-4 40M102 84l-10 40" stroke="rgba(255,255,255,.75)" stroke-width="1.6" fill="none"/></g>
+          <ellipse cx="80" cy="84" rx="30" ry="6" fill="none" stroke="#ff7a2e" stroke-width="4"/></svg>
+        <div class="bx"><div class="by"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" fill="#e8590c"/><g fill="none" stroke="#3b1404" stroke-width="3.4"><path d="M3 32h58M32 3v58M12 11c9 8 9 34 0 42M52 11c-9 8-9 34 0 42"/></g></svg></div></div>
+        <div class="pts">+3</div>
+      </div>
+    </div>
+    <div class="scoreboard">
+      <div><span class="l">Opening night · Oct 20</span><b id="sbOpen">--</b></div>
+      <div><span class="l">League trade deadline · Mar 7</span><b id="sbTd">--</b></div>
+      <div><span class="l">Playoffs start · Mar 15</span><b id="sbPo">--</b></div>
+      <div><span class="l">Championship ends · Apr 4</span><b id="sbCh">--</b></div>
+    </div>
+  </section>
+
+  <a class="hqdoor tilt shine reveal" href="draft-hq.html">
+    <div>
+      <div class="eyebrow" style="color:var(--orange)">Your startup tool</div>
+      <h2>Dynasty <span>Draft HQ</span></h2>
+      <p class="sub" style="max-width:52ch;margin:10px 0 14px">318 players ranked for this league, with the draft room, pick plan, trade calculator, visual lab, compare tool and Lock-In lab, exactly as you built it. Stars and settings saved in the artifact version stay there (browsers keep each site's data separate), but the Draft Room's live Sleeper sync pulls in the real picks.</p>
+      <div id="draftProg" class="sub">No draft progress saved yet.</div>
+      <div class="prog"><i id="draftBar"></i></div>
+      <div class="btn gold" style="margin-top:16px">Open Draft HQ →</div>
+    </div>
+    <svg class="court" viewBox="0 0 460 300" aria-hidden="true"><g fill="none" stroke="rgba(255,255,255,.35)" stroke-width="3"><rect x="10" y="10" width="440" height="280" rx="6"/><path d="M230 10v280"/><circle cx="230" cy="150" r="48"/><rect x="10" y="95" width="120" height="110"/><circle cx="130" cy="150" r="40"/><path d="M10 26h40a140 140 0 0 1 0 248H10"/><rect x="330" y="95" width="120" height="110"/><circle cx="330" cy="150" r="40"/><path d="M450 26h-40a140 140 0 0 0 0 248h40"/></g><circle cx="230" cy="150" r="14" fill="#e8590c"><animate attributeName="r" values="12;16;12" dur="1.4s" repeatCount="indefinite"/></circle></svg>
+  </a>
+
+  <div class="yard reveal"><span>1 0</span></div>
+  <div class="vhead reveal"><div><h2>Season center</h2><div class="sub">Your Sleeper NBA leagues. Uses the same username as Football HQ.</div></div><span class="sp"></span><button class="btn small" id="nbaRefresh">↻ Refresh</button></div>
+  <div id="nbaBox" class="reveal"></div>
+
+  <div class="yard reveal"><span>2 0</span></div>
+  <div class="card hash reveal">
+    <div class="head"><h3>2026–27 league calendar</h3><span class="sp"></span><span class="sub" id="tlPct"></span></div>
+    <div class="timeline" id="timeline"></div>
+  </div>
+
+  <div class="yard reveal"><span>3 0</span></div>
+  <div class="grid g2">
+    <div class="card hash reveal">
+      <div class="head"><h3>Lock or roll?</h3><span class="sp"></span><span class="tag hot">Lock-In helper</span></div>
+      <div class="sub">A starter just finished a game. Should you lock that score in, or wait for his next game? The math compares this score to what waiting is worth, given how many games he has left this week.</div>
+      <div class="grid g3" style="gap:10px;margin-top:12px">
+        <label class="f">Score just posted<input type="number" id="lkScore" value="42" min="0" step="0.5"></label>
+        <label class="f">His average<input type="number" id="lkAvg" value="38" min="1" step="0.5"></label>
+        <label class="f">Games left this week<select id="lkLeft"><option value="0">0 (last game)</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option></select></label>
+      </div>
+      <div class="lockmeter" aria-hidden="true"><i id="lkLine"></i><b id="lkMark"></b></div>
+      <div class="row"><span class="sub" style="font-size:12px">Low</span><span class="sp"></span><span class="sub" style="font-size:12px">Gold line = lock if above</span><span class="sp"></span><span class="sub" style="font-size:12px">High</span></div>
+      <div class="lockverdict" id="lkVerdict">–</div>
+      <div class="sub" id="lkWhy" style="margin-top:6px"></div>
+    </div>
+    <div class="card hash reveal">
+      <div class="head"><h3>How Lock-In works</h3></div>
+      <div class="steps">
+        <div class="step"><div>Matchups run Monday through Sunday.</div></div>
+        <div class="step"><div>A player has to be in your lineup before tip-off for that game to count.</div></div>
+        <div class="step"><div>After his game ends, you can lock it any time before his next game starts. Locked games can't be undone.</div></div>
+        <div class="step"><div>Once he's locked, his later games that week don't count.</div></div>
+        <div class="step"><div>Never lock him and his team's last game of the week counts automatically, even if he sits.</div></div>
+        <div class="step"><div>Points only count for games played while he was on your roster.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="yard reveal"><span>4 0</span></div>
+  <div class="grid g2">
+    <div class="card hash reveal">
+      <div class="head"><h3>Scoring</h3><span class="sp"></span><a class="btn small" href="https://claude.ai/artifact/XrwgjCEecq5ewboJmcH8Wd" target="_blank" rel="noopener">Full rulebook ↗</a></div>
+      <div class="sgrid"><div><b>1</b><span>Point</span></div><div><b>1.2</b><span>Rebound</span></div><div><b>1.5</b><span>Assist</span></div><div><b>3</b><span>Steal</span></div><div><b>3</b><span>Block</span></div><div><b style="color:#fda4af">−1</b><span>Turnover</span></div></div>
+      <div class="eyebrow" style="margin:16px 0 8px">Starting lineup (10)</div>
+      <div class="row"><span class="pos" style="--pc:#ffb37a">PG</span> <span class="pos" style="--pc:#ffb37a">SG</span> <span class="pos" style="--pc:#ffb37a">G</span> <span class="pos" style="--pc:#ffb37a">SF</span> <span class="pos" style="--pc:#ffb37a">PF</span> <span class="pos" style="--pc:#ffb37a">F</span> <span class="pos" style="--pc:#ffb37a">C</span> <span class="pos" style="--pc:#ffb37a">C</span> <span class="pos" style="--pc:#ffb37a">UTIL</span> <span class="pos" style="--pc:#ffb37a">UTIL</span></div>
+      <div class="mstat"><div><span class="l">Bench</span><b>10</b></div><div><span class="l">IR (OUT/susp.)</span><b>3</b></div><div><span class="l">Taxi (≤2 yrs)</span><b>3</b></div><div><span class="l">Max roster</span><b>26</b></div></div>
+    </div>
+    <div class="card hash reveal">
+      <div class="head"><h3>Moves &amp; money</h3></div>
+      <div class="mstat">
+        <div><span class="l">FAAB budget</span><b>$100</b></div><div><span class="l">Min bid</span><b>$0</b></div><div><span class="l">Waiver period</span><b>1 day</b></div><div><span class="l">Claims run</span><b>Nightly</b></div>
+        <div><span class="l">Trade review</span><b>24 hrs</b></div><div><span class="l">Future picks</span><b>2 yrs</b></div><div><span class="l">Playoff teams</span><b>6</b></div><div><span class="l">Byes</span><b>Top 2</b></div>
+      </div>
+      <ul class="sub" style="margin:14px 0 0;padding-left:18px;line-height:1.75">
+        <li>Waiver ties go to the worse record. FAAB can be traded.</li>
+        <li>Taxi moves lock at opening night. Free agents go to the bench first, then taxi.</li>
+        <li>Healthy IR players must come back within 48 hours.</li>
+        <li>Rule changes are offseason only and need 7 of 10 votes.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="yard reveal" id="lottery"><span>5 0</span></div>
+  <div class="card hash reveal">
+    <div class="head"><h3>2027 rookie lottery</h3><span class="sp"></span><span class="sub">picks 1–4 · the 4 non-playoff teams</span></div>
+    <div class="drumwrap">
+      <canvas id="drum" role="img" aria-label="Animated lottery drum with 40 balls colored by team"></canvas>
+      <div>
+        <div class="sub" style="margin-bottom:10px">Each team gets balls in proportion to its odds for #1. Once a team is drawn its balls come out and the next pick is drawn from what's left, just like the rulebook says. Rename the teams if you like.</div>
+        <div id="lotTeams"></div>
+        <div class="row" style="margin-top:6px"><button class="btn gold" id="lotDraw">Run the lottery 🎱</button><button class="btn small" id="lotSim">Simulate 10,000</button></div>
+        <div class="lotres" id="lotRes"></div>
+        <div id="lotSimOut"></div>
+      </div>
+    </div>
+  </div>
+</main>
+<footer class="foot">League rules from your Dynasty League Rulebook. Live league data from the public <a href="https://docs.sleeper.com/" target="_blank" rel="noopener">Sleeper API</a>.</footer>
+
+<script src="../assets/fx.js"></script>
+<script src="nba-snapshot.js"></script>
+<script>
+(() => {
+const { $, $$, esc, clamp, rand, reduced, store, sleeper, toast, reveal, tilt, confetti, popText, ambient, fmtCountdown } = FX;
+ambient($('#heroCv'), { kind: 'basketball', count: 9 });
+$$('.tilt').forEach(el => tilt(el, 5));
+reveal();
+
+/* ---------- countdowns (all ET) ---------- */
+const OPEN = Date.UTC(2026, 9, 20, 23, 30), TD = Date.UTC(2027, 2, 8, 4, 59), PO = Date.UTC(2027, 2, 15, 4), CH = Date.UTC(2027, 3, 5, 3, 59);
+const tick = () => { $('#sbOpen').textContent = fmtCountdown(OPEN); $('#sbTd').textContent = fmtCountdown(TD); $('#sbPo').textContent = fmtCountdown(PO); $('#sbCh').textContent = fmtCountdown(CH); };
+tick(); setInterval(tick, 1000);
+
+/* ---------- Draft HQ progress (reads the Draft HQ's own saved state) ---------- */
+(() => {
+  let d = null; try { d = JSON.parse(localStorage.getItem('ddhq3_draft') || 'null'); } catch (e) {}
+  if (!d || !Array.isArray(d.picks)) return;
+  const teams = d.teams || 10, rounds = d.rounds || 20, total = teams * rounds, n = d.picks.length;
+  $('#draftProg').innerHTML = n ? `<b style="color:var(--chalk)">${n} of ${total} picks made</b>${d.slot ? ` · you pick from slot ${d.slot}` : ''}` : `Draft board is set up${d.slot ? ` · you pick from slot ${d.slot}` : ''}. No picks yet.`;
+  requestAnimationFrame(() => setTimeout(() => $('#draftBar').style.width = (n / total * 100).toFixed(1) + '%', 300));
+})();
+
+/* ---------- season center (Sleeper NBA) ---------- */
+const NBA = {}; for (const r of (window.NBA_SNAP || [])) NBA[r[0]] = { id: r[0], name: r[1], pos: r[2], team: r[3], rank: r[4] };
+const pn = id => NBA[id] || { id, name: 'Player ' + id, pos: '', team: '' };
+async function loadNba() {
+  const box = $('#nbaBox'), name = store('ffhq_').get('username', '');
+  if (!name) { box.innerHTML = `<div class="card empty"><div style="font-size:40px">🏀</div><h3 style="margin:8px 0">Connect Sleeper</h3><p class="sub">Add your Sleeper username on Football HQ's Gameday tab and your NBA leagues show up here too.</p><a class="btn gold" href="../football/index.html#gameday">Connect on Football HQ</a></div>`; return; }
+  box.innerHTML = '<div class="spinner"></div>';
+  try {
+    const st = await sleeper('/v1/state/nba', { ttl: 30 * 60e3 });
+    const u = await sleeper(`/v1/user/${encodeURIComponent(name)}`);
+    const ls = await sleeper(`/v1/user/${u.user_id}/leagues/nba/${st.season}`);
+    if (!ls.length) { box.innerHTML = `<div class="card empty"><h3>No ${st.season} NBA leagues on ${esc(name)} yet</h3><p class="sub">Once the dynasty league is created on Sleeper it will appear here automatically.</p></div>`; return; }
+    const regular = st.season_type === 'regular';
+    const cards = await Promise.all(ls.map(async lg => {
+      const [rosters, users, mu] = await Promise.all([sleeper(`/v1/league/${lg.league_id}/rosters`), sleeper(`/v1/league/${lg.league_id}/users`), regular ? sleeper(`/v1/league/${lg.league_id}/matchups/${st.week}`).catch(() => []) : Promise.resolve([])]);
+      const um = {}; for (const x of users) um[x.user_id] = x;
+      const tn = r => { const x = um[r && r.owner_id]; return (x && x.metadata && x.metadata.team_name) || (x && x.display_name) || 'Team ' + (r ? r.roster_id : '?'); };
+      const mine = rosters.find(r => r.owner_id === u.user_id || (r.co_owners || []).includes(u.user_id));
+      const S = rosters.map(r => ({ r, w: r.settings.wins || 0, l: r.settings.losses || 0, pf: (r.settings.fpts || 0) + (r.settings.fpts_decimal || 0) / 100 })).sort((a, b) => b.w - a.w || b.pf - a.pf);
+      const rank = mine ? S.findIndex(x => x.r === mine) + 1 : null;
+      const me = mine && mu.find(m => m.roster_id === mine.roster_id), opp = me && mu.find(m => m.matchup_id === me.matchup_id && m.roster_id !== me.roster_id);
+      const top = mine ? (mine.players || []).map(pn).sort((a, b) => (a.rank || 9e9) - (b.rank || 9e9)).slice(0, 8) : [];
+      return `<div class="card hash tilt"><div class="row"><b style="font:800 16px var(--font-display);text-transform:uppercase;letter-spacing:.6px">${esc(lg.name)}</b><span class="sp"></span><span class="tag rk">${lg.status === 'pre_draft' ? 'Pre-draft' : lg.status === 'drafting' ? 'Drafting' : lg.settings.type === 2 ? 'Dynasty' : 'Season'}</span></div>
+        ${me ? `<div class="row" style="margin:14px 0 8px;align-items:flex-end"><div><div class="sub">${esc(tn(mine))}</div><div style="font:400 40px/1 var(--font-jersey);color:var(--orange)">${(me.points || 0).toFixed(1)}</div></div><span class="sp"></span><div style="text-align:right"><div class="sub">${esc(opp ? tn(rosters.find(r => r.roster_id === opp.roster_id)) : 'Bye')}</div><div style="font:400 40px/1 var(--font-jersey)">${opp ? (opp.points || 0).toFixed(1) : '–'}</div></div></div>`
+          : `<p class="sub" style="margin:12px 0">${regular ? 'No matchup this week.' : `Season tips off Oct 20 (${fmtCountdown(OPEN)}).`}</p>`}
+        <div class="mstat"><div><span class="l">Record</span><b>${mine ? `${mine.settings.wins || 0}-${mine.settings.losses || 0}` : '–'}</b></div><div><span class="l">Rank</span><b>${rank ? `#${rank}/${rosters.length}` : '–'}</b></div><div><span class="l">Roster</span><b>${mine ? (mine.players || []).length : 0}</b></div><div><span class="l">FAAB left</span><b>${mine && lg.settings.waiver_budget != null ? '$' + (lg.settings.waiver_budget - (mine.settings.waiver_budget_used || 0)) : '–'}</b></div></div>
+        ${top.length ? `<div class="eyebrow" style="margin:14px 0 6px;color:var(--orange)">Your core</div><div class="sub" style="line-height:1.8">${top.map(p => `<b style="color:var(--chalk)">${esc(p.name)}</b> <span class="team">${esc(p.team)}</span>`).join(' · ')}</div>` : ''}
+        <a class="btn small" style="margin-top:12px" href="https://sleeper.com/leagues/${esc(lg.league_id)}" target="_blank" rel="noopener">Open in Sleeper ↗</a></div>`;
+    }));
+    box.innerHTML = `<div class="nbacards">${cards.join('')}</div>`;
+    $$('#nbaBox .tilt').forEach(el => tilt(el, 5));
+  } catch (e) { box.innerHTML = `<div class="card empty">Couldn't load NBA leagues from Sleeper right now.</div>`; }
+}
+$('#nbaRefresh').onclick = loadNba; loadNba();
+
+/* ---------- timeline ---------- */
+(() => {
+  const start = Date.UTC(2026, 9, 20), end = Date.UTC(2027, 3, 5);
+  const pts = [[Date.UTC(2026, 9, 20), 'Opening night', 'Oct 20'], [Date.UTC(2026, 11, 25), 'Christmas slate', 'Dec 25'], [Date.UTC(2027, 2, 7), 'Trade deadline', 'Mar 7'], [Date.UTC(2027, 2, 15), 'Quarterfinals', 'Mar 15–21'], [Date.UTC(2027, 2, 22), 'Semifinals', 'Mar 22–28'], [Date.UTC(2027, 2, 29), 'Championship', 'Mar 29–Apr 4']];
+  const pos = t => clamp((t - start) / (end - start), 0, 1) * 100;
+  const now = pos(Date.now());
+  $('#timeline').innerHTML = `<div class="track"></div><div class="fill" id="tlFill"></div>${pts.map(([t, b, s], i) => `<div class="mk ${i % 2 ? 'up' : ''}" style="left:${pos(t)}%"><i></i><b>${b}</b><small>${s}</small></div>`).join('')}<div class="now" id="tlNow" style="left:0">TODAY</div>`;
+  $('#tlPct').textContent = Date.now() < start ? `Starts in ${Math.ceil((start - Date.now()) / 864e5)} days` : `${Math.round(now)}% of the season played`;
+  new IntersectionObserver((es, o) => es.forEach(e => { if (e.isIntersecting) { $('#tlFill').style.width = now + '%'; $('#tlNow').style.left = now + '%'; o.disconnect(); } }), { threshold: .4 }).observe($('#timeline'));
+})();
+
+/* ---------- Lock or roll: optimal stopping with normally distributed games ---------- */
+const nphi = x => Math.exp(-x * x / 2) / Math.sqrt(2 * Math.PI);
+function ncdf(x) { const t = 1 / (1 + .2316419 * Math.abs(x)), d = .3989423 * Math.exp(-x * x / 2), p = d * t * (.3193815 + t * (-.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return x > 0 ? 1 - p : p; }
+const emax = (mu, sd, c) => { const z = (mu - c) / sd; return mu * ncdf(z) + c * ncdf(-z) + sd * nphi(z); };
+function lockCalc() {
+  const s = +$('#lkScore').value || 0, mu = Math.max(1, +$('#lkAvg').value || 1), k = +$('#lkLeft').value, sd = mu * .28;
+  let W = mu; for (let i = 2; i <= k; i++) W = emax(mu, sd, W);   // value of waiting with k games left
+  const lo = mu * .3, hi = mu * 1.9, P = v => clamp((v - lo) / (hi - lo), 0, 1) * 100;
+  $('#lkMark').style.left = P(s) + '%'; $('#lkLine').style.left = (k ? P(W) : 0) + '%'; $('#lkLine').style.opacity = k ? 1 : 0;
+  const v = $('#lkVerdict'), why = $('#lkWhy');
+  if (k === 0) { v.textContent = 'It counts anyway'; v.style.color = 'var(--chalk)'; why.textContent = 'That was his last game this week, so it counts automatically whether you lock it or not.'; return; }
+  if (s >= W) { v.textContent = '🔒 Lock it in'; v.style.color = 'var(--lime)'; why.innerHTML = `Waiting is worth about <b>${W.toFixed(1)}</b> with ${k} game${k > 1 ? 's' : ''} left. ${s.toFixed(1)} beats that, so bank it.`; }
+  else { v.textContent = '🎲 Roll it'; v.style.color = 'var(--orange)'; why.innerHTML = `Waiting is worth about <b>${W.toFixed(1)}</b> with ${k} game${k > 1 ? 's' : ''} left. ${s.toFixed(1)} is below that, so let him play again.`; }
+}
+['lkScore', 'lkAvg', 'lkLeft'].forEach(id => $('#' + id).addEventListener('input', lockCalc)); lockCalc();
+
+/* ---------- lottery drum ---------- */
+const LS = store('bbhq_');
+const TEAMS = [{ k: '10th', odds: 40, c: '#ff7a2e' }, { k: '9th', odds: 30, c: '#facc15' }, { k: '8th', odds: 20, c: '#38bdf8' }, { k: '7th', odds: 10, c: '#a3e635' }];
+const names = LS.get('lotNames', TEAMS.map(t => `${t.k} place`));
+$('#lotTeams').innerHTML = TEAMS.map((t, i) => `<div class="lotteam"><i style="background:${t.c}"></i><label class="vh" for="lt${i}">Team that finished ${t.k}</label><input type="text" id="lt${i}" value="${esc(names[i])}"><span>${t.odds}%</span></div>`).join('');
+$$('#lotTeams input').forEach((inp, i) => inp.oninput = () => { names[i] = inp.value || `${TEAMS[i].k} place`; LS.set('lotNames', names); });
+const cv = $('#drum'), ctx = cv.getContext('2d'); let S = 0, balls = [], ang = 0, spin = .01, drawing = false, ejected = null;
+function fitDrum() { const d = devicePixelRatio || 1, r = cv.getBoundingClientRect(); S = r.width; cv.width = S * d; cv.height = S * d; ctx.setTransform(d, 0, 0, d, 0, 0); }
+function resetBalls() { balls = []; TEAMS.forEach((t, ti) => { for (let i = 0; i < t.odds / 2.5; i++) balls.push({ ti, x: rand(-.5, .5), y: rand(-.1, .55), vx: rand(-.01, .01), vy: 0 }); }); }
+fitDrum(); resetBalls(); addEventListener('resize', fitDrum);
+function drumFrame() {
+  const R = S * .42, cx = S / 2, cy = S / 2, br = S * .028;
+  ctx.clearRect(0, 0, S, S);
+  ang += spin;
+  ctx.save(); ctx.translate(cx, cy);
+  const g = ctx.createRadialGradient(-R * .3, -R * .4, R * .1, 0, 0, R); g.addColorStop(0, 'rgba(255,255,255,.10)'); g.addColorStop(1, 'rgba(255,255,255,.02)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.fill();
+  ctx.strokeStyle = 'rgba(241,248,238,.55)'; ctx.lineWidth = 4; ctx.stroke();
+  ctx.strokeStyle = 'rgba(241,248,238,.15)'; ctx.lineWidth = 2;
+  for (let i = 0; i < 6; i++) { const a = ang + i * Math.PI / 3; ctx.beginPath(); ctx.moveTo(Math.cos(a) * R * .2, Math.sin(a) * R * .2); ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R); ctx.stroke(); }
+  const rr = (R - br) / R;
+  for (const b of balls) {
+    b.vy += drawing ? .0025 : .0012; b.vx *= .995; b.vy *= .995;
+    if (drawing) { b.vx += Math.cos(ang * 7 + b.ti) * .0018 * rand(.5, 1.5); b.vy -= rand(0, .004); }
+    b.x += b.vx; b.y += b.vy;
+    const d = Math.hypot(b.x, b.y); if (d > rr) { const nx = b.x / d, ny = b.y / d; b.x = nx * rr; b.y = ny * rr; const dot = b.vx * nx + b.vy * ny; b.vx -= 1.9 * dot * nx; b.vy -= 1.9 * dot * ny; b.vx += -ny * spin * 3; b.vy += nx * spin * 3; }
+  }
+  for (const b of balls) { const x = b.x * R, y = b.y * R; const gg = ctx.createRadialGradient(x - br * .35, y - br * .35, 1, x, y, br); gg.addColorStop(0, '#fff'); gg.addColorStop(.35, TEAMS[b.ti].c); gg.addColorStop(1, 'rgba(0,0,0,.6)'); ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(x, y, br, 0, 7); ctx.fill(); }
+  if (ejected) { ejected.t += .03; const k = Math.min(1, ejected.t), x = 0, y = -R * (.2 + k * 1.05), sc = 1 + k * 1.4; ctx.fillStyle = TEAMS[ejected.ti].c; ctx.shadowColor = TEAMS[ejected.ti].c; ctx.shadowBlur = 24; ctx.beginPath(); ctx.arc(x, y, br * sc, 0, 7); ctx.fill(); ctx.shadowBlur = 0; }
+  ctx.restore();
+  requestAnimationFrame(drumFrame);
+}
+if (!reduced) requestAnimationFrame(drumFrame); else { ctx.fillStyle = '#86ab92'; ctx.fillText('Lottery drum', 20, 30); }
+const sleep = ms => new Promise(r => setTimeout(r, reduced ? 0 : ms));
+function drawOrder() { // weighted draw without replacement
+  const left = TEAMS.map((t, i) => i), out = [];
+  while (left.length) { const tot = left.reduce((s, i) => s + TEAMS[i].odds, 0); let r = Math.random() * tot, j = 0; while (r > TEAMS[left[j]].odds) { r -= TEAMS[left[j]].odds; j++; } out.push(left.splice(j, 1)[0]); }
+  return out;
+}
+$('#lotDraw').onclick = async () => {
+  const btn = $('#lotDraw'); btn.disabled = true; resetBalls(); $('#lotRes').innerHTML = ''; spin = .05; drawing = true;
+  const order = drawOrder();
+  for (let p = 0; p < 4; p++) {
+    await sleep(1500);
+    const ti = order[p]; ejected = { ti, t: 0 }; await sleep(900);
+    balls = balls.filter(b => b.ti !== ti); ejected = null;
+    $('#lotRes').insertAdjacentHTML('beforeend', `<div class="lotcard"><span class="n">#${p + 1}</span><i style="width:14px;height:14px;border-radius:50%;background:${TEAMS[ti].c}"></i><div><b>${esc(names[ti])}</b><div class="sub" style="font-size:12px">finished ${TEAMS[ti].k} · ${TEAMS[ti].odds}% odds at #1</div></div></div>`);
+    if (p === 0) { const r = cv.getBoundingClientRect(); confetti(r.left + r.width / 2, r.top + r.height * .2, 90, 1.1); popText(r.left + r.width / 2, r.top + 40, `#1: ${names[ti].toUpperCase()}`, TEAMS[ti].c, 34); }
+  }
+  spin = .01; drawing = false; resetBalls(); btn.disabled = false;
+};
+$('#lotSim').onclick = () => {
+  const N = 10000, cnt = TEAMS.map(() => [0, 0, 0, 0]);
+  for (let i = 0; i < N; i++) drawOrder().forEach((ti, p) => cnt[ti][p]++);
+  $('#lotSimOut').innerHTML = `<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Team</th><th class="r">#1</th><th class="r">#2</th><th class="r">#3</th><th class="r">#4</th></tr></thead><tbody>${TEAMS.map((t, ti) => `<tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${t.c};margin-right:8px"></i>${esc(names[ti])}</td>${cnt[ti].map(c => `<td class="r num">${(c / N * 100).toFixed(1)}%</td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="sub" style="margin-top:6px">The worst team lands #1 about 40% of the time and still falls to #4 about ${(cnt[0][3] / N * 100).toFixed(0)}% of the time.</div>`;
+};
+})();
+</script>
+</body>
+</html>
