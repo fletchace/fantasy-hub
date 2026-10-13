@@ -106,12 +106,14 @@ function buildSleeperLeague(lg, rosters, users, mu) {
   const teamName = r => { const u = umap[r && r.owner_id]; return (u && u.metadata && u.metadata.team_name) || (u && u.display_name) || ('Team ' + (r ? r.roster_id : '?')); };
   const mine = rosters.find(r => r.owner_id === uid || (r.co_owners || []).includes(uid));
   const slots = (lg.roster_positions || []).filter(s => !['BN', 'IR', 'TAXI'].includes(s));
-  const standings = rosters.map(r => { const s = r.settings || {}; return { rid: r.roster_id, name: teamName(r), w: s.wins || 0, l: s.losses || 0, t: s.ties || 0, pf: (s.fpts || 0) + (s.fpts_decimal || 0) / 100, pa: (s.fpts_against || 0) + (s.fpts_against_decimal || 0) / 100, me: !!(mine && r.roster_id === mine.roster_id) }; })
-    .sort((a, b) => b.w - a.w || a.l - b.l || b.pf - a.pf);
+  const chopped = (lg.settings || {}).type === 3;   // Sleeper "Chopped" (guillotine): no opponents, lowest score each week is eliminated
+  const standings = rosters.map(r => { const s = r.settings || {}; return { rid: r.roster_id, name: teamName(r), w: s.wins || 0, l: s.losses || 0, t: s.ties || 0, pf: (s.fpts || 0) + (s.fpts_decimal || 0) / 100, pa: (s.fpts_against || 0) + (s.fpts_against_decimal || 0) / 100, elim: s.eliminated || 0, me: !!(mine && r.roster_id === mine.roster_id) }; })
+    .sort(chopped ? (a, b) => (!!a.elim - !!b.elim) || (b.elim - a.elim) || b.pf - a.pf : (a, b) => b.w - a.w || a.l - b.l || b.pf - a.pf);
   standings.forEach((s, i) => s.rank = i + 1);
   const rosterById = {}; for (const r of rosters) rosterById[r.roster_id] = r;
   return { id: lg.league_id, kind: 'sleeper', name: lg.name, lg, scoring: lg.scoring_settings || {}, slots, rosters, rosterById, users: umap, teamName, mine, standings, matchups: mu || [],
-    teams: rosters.length, playoff: (lg.settings && lg.settings.playoff_teams) || 6, type: lg.settings && lg.settings.type,
+    teams: rosters.length, playoff: (lg.settings && lg.settings.playoff_teams) || 6, type: lg.settings && lg.settings.type, chopped,
+    myElim: (mine && (mine.settings || {}).eliminated) || 0,
     myIds: mine ? (mine.players || []) : [], starters: mine ? (mine.starters || []) : null, ir: (mine && mine.reserve) || [], taxi: (mine && mine.taxi) || [], me: standings.find(s => s.me) };
 }
 function buildManual(m) {
@@ -128,7 +130,7 @@ function fmtBits(L) {
   if (L.slots.includes('SUPER_FLEX') || L.slots.filter(s => s === 'QB').length > 1) bits.push('Superflex');
   if ((sc.bonus_rec_te || 0) > 0) bits.push('TE +' + sc.bonus_rec_te);
   if ((sc.pass_td || 4) >= 6) bits.push('6pt pass TD');
-  if (L.type === 2) bits.push('Dynasty'); else if (L.type === 1) bits.push('Keeper');
+  if (L.chopped) bits.unshift('Chopped'); else if (L.type === 2) bits.push('Dynasty'); else if (L.type === 1) bits.push('Keeper');
   if (L.teams) bits.push(L.teams + ' teams');
   if (L.kind === 'manual') bits.push(L.platform || 'Manual');
   return bits;
@@ -155,13 +157,35 @@ function liveProj(entry, L, w) {
     if (!id || id === '0') return;
     const p = pl(id), pts = (entry.starters_points || [])[i] || 0, g = weekGames(w)[p.team];
     if (!g || g.status === 'complete' || (g.date < today() && g.status !== 'in_game')) tot += pts;
-    else if (g.status === 'in_game' || g.status === 'in_progress') { tot += Math.max(pts, evalPlayer(id, L, w).v); rem += .5; }
+    else if (g.status === 'in_game' || g.status === 'in_progress') { tot += Math.max(pts, projFor(id, L, w)); rem += .5; }
     else { tot += evalPlayer(id, L, w).v; rem++; }
   });
   return { proj: tot, rem };
 }
+function gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+/* Chopped leagues: every surviving team is scored on its own and the lowest final score is eliminated.
+   Each team's final = points so far + projections for players yet to play; survival odds come from simulating
+   the rest of the week (about 6.5 pts of spread per player left) and counting how often you're not the lowest. */
+function chopInfo(L) {
+  if (L._chop) return L._chop;
+  const w = G.week, alive = L.rosters.filter(r => !(r.settings || {}).eliminated);
+  const rows = alive.map(r => {
+    const e = L.matchups.find(m => m.roster_id === r.roster_id) || { starters: [], points: 0 }, lp = liveProj(e, L, w);
+    return { rid: r.roster_id, name: L.teamName(r), pts: e.points || 0, proj: Math.max(lp.proj, e.points || 0), rem: lp.rem, me: !!(L.mine && r.roster_id === L.mine.roster_id) };
+  }).sort((a, b) => b.proj - a.proj);
+  rows.forEach((x, i) => x.rank = i + 1);
+  const me = rows.find(x => x.me), others = rows.filter(x => !x.me), low = others.length ? others[others.length - 1] : null;
+  let survive = null;
+  if (me && rows.length > 1) {
+    if (!rows.some(x => x.rem > 0)) survive = rows[rows.length - 1].me ? 0 : 1;
+    else { const N = 3000; let safe = 0; for (let k = 0; k < N; k++) { let mv = Infinity, mm = false; for (const x of rows) { const v = x.proj + gauss() * 6.5 * Math.sqrt(x.rem); if (v < mv) { mv = v; mm = x.me; } } if (!mm) safe++; } survive = safe / N; }
+  }
+  const out = L.rosters.filter(r => (r.settings || {}).eliminated).map(r => ({ name: L.teamName(r), wk: r.settings.eliminated, pf: (r.settings.fpts || 0) + (r.settings.fpts_decimal || 0) / 100 })).sort((a, b) => b.wk - a.wk);
+  return (L._chop = { rows, me, low, cushion: me && low ? me.proj - low.proj : null, survive, alive: rows.length, out, lastChop: (L.lg.settings || {}).last_chopped_leg || 0 });
+}
+const myPoints = L => { const e = L.mine && L.matchups.find(m => m.roster_id === L.mine.roster_id); return e ? e.points || 0 : null; };
 function matchupOf(L) {
-  if (L.kind !== 'sleeper' || !L.mine || !L.matchups.length) return null;
+  if (L.kind !== 'sleeper' || !L.mine || !L.matchups.length || L.chopped) return null;
   const me = L.matchups.find(m => m.roster_id === L.mine.roster_id); if (!me) return null;
   const opp = me.matchup_id != null ? L.matchups.find(m => m.matchup_id === me.matchup_id && m.roster_id !== me.roster_id) : null;
   const a = liveProj(me, L, G.week), b = opp ? liveProj(opp, L, G.week) : { proj: 0, rem: 0 };
@@ -204,6 +228,10 @@ function alertsFor(L) {
     else if (e.flag === 'OUT') out.push({ k: 'out', tag: 'Out', L, html: `<b data-pid="${esc(id)}" style="cursor:pointer">${esc(e.p.name)}</b> is listed ${esc(e.p.inj)} and starting at ${esc(SLOT_LBL[s] || s)}.` });
     else if (e.flag === 'D' || e.flag === 'Q') out.push({ k: 'q', tag: e.flag === 'D' ? 'Doubtful' : 'Q', L, html: `<b data-pid="${esc(id)}" style="cursor:pointer">${esc(e.p.name)}</b> is ${esc(e.p.inj).toLowerCase()}. Check news before kickoff.` });
   });
+  if (L.chopped && !L.myElim && L.matchups.length) {
+    const c = chopInfo(L);
+    if (c.me && c.survive != null && c.survive < .75) out.push({ k: c.survive < .4 ? 'out' : 'q', tag: 'Chop risk', L, html: `Only <b>${Math.round(c.survive * 100)}%</b> to survive this week. You're projected #${c.me.rank} of ${c.alive}${c.cushion != null ? `, ${c.cushion >= 0 ? f1(c.cushion) + ' above' : f1(-c.cushion) + ' below'} the next-lowest team` : ''}.`, fix: true });
+  }
   if (L.myIds.length) {
     const o = optimize(L, w);
     if (o.now != null && o.best - o.now > 1.5) out.push({ k: 'up', tag: `+${f1(o.best - o.now)}`, L, html: `A better lineup is projected to score <b>${f1(o.best - o.now)}</b> more points.`, fix: true });
@@ -212,6 +240,12 @@ function alertsFor(L) {
 }
 function saveSummaries() {
   const sums = G.sleeperLeagues.filter(L => L.me).map(L => {
+    if (L.chopped) {
+      if (L.myElim) return { name: L.name, record: 'CHOPPED', rank: 0, teams: 0, playoff: 0, line: `Eliminated in week ${L.myElim}` };
+      const c = chopInfo(L);
+      return { name: L.name, record: 'ALIVE', rank: c.me ? c.me.rank : 0, teams: c.alive, playoff: c.alive - 1,
+        line: c.me ? `Wk ${G.week}: ${f1(c.me.pts)} pts · ${c.survive != null ? Math.round(c.survive * 100) + '% to survive' : ''} · ${c.alive} of ${L.teams} left` : '' };
+    }
     const m = matchupOf(L);
     return { name: L.name, record: `${L.me.w}-${L.me.l}${L.me.t ? '-' + L.me.t : ''}`, rank: L.me.rank, teams: L.teams, playoff: L.playoff,
       line: m ? `Wk ${G.week}: ${f1(m.myPts)}–${f1(m.oppPts)} vs ${m.oppName}${m.wp != null ? ` · ${Math.round(m.wp * 100)}% to win` : ''}` : '' };
@@ -231,7 +265,7 @@ function updateBoard() {
   const open = G.sched.filter(g => g.status !== 'complete').sort((a, b) => a.date.localeCompare(b.date));
   if (open.length) nextKick = kickoffTime(open[0].date);
   const ls = allLeagues(); $('#hbLeagues').textContent = ls.length;
-  let w = 0, l = 0, t = 0; for (const L of G.sleeperLeagues) if (L.me) { w += L.me.w; l += L.me.l; t += L.me.t; }
+  let w = 0, l = 0, t = 0; for (const L of G.sleeperLeagues) if (L.me && !L.chopped) { w += L.me.w; l += L.me.l; t += L.me.t; }
   $('#hbRecord').textContent = `${w}-${l}${t ? '-' + t : ''}`;
   const n = ls.reduce((s, L) => s + alertsFor(L).length, 0);
   $('#hbAlerts').textContent = ls.length ? (n ? n : 'ALL CLEAR') : '–';
@@ -302,6 +336,7 @@ function renderGameday() {
         <div class="vs"><div class="side me"><div class="tm">Your best lineup</div><div class="sc num">${f1(o.best)}</div><div class="pj">projected · week ${G.week}</div></div><div class="mid">${esc(L.platform || '')}</div><div class="side r"><div class="tm">${L.myIds.length} players</div><div class="pj">${L.url ? `<a href="${esc(L.url)}" target="_blank" rel="noopener">Open league ↗</a>` : 'Manual league'}</div></div></div>
         <div class="sub">Set this lineup on ${esc(L.platform || 'your site')}. Start/Sit has the slot-by-slot breakdown.</div></div>`;
     }
+    if (L.chopped) return chopCard(L, bits);
     const m = matchupOf(L), rec = L.me ? `${L.me.w}-${L.me.l}${L.me.t ? '-' + L.me.t : ''}` : '';
     const rk = L.me ? `<span class="tag ${L.me.rank <= L.playoff ? 'good' : 'q'}">#${L.me.rank} of ${L.teams}</span>` : '';
     if (!m) return `<div class="card mcard tilt reveal" data-lg="${esc(L.id)}"><div class="row"><div class="lgname">${esc(L.name)}</div><span class="sp"></span>${bits}</div><p class="sub" style="margin-top:14px">No matchup this week. ${L.mine ? '' : "You don't own a team in this league."}</p><div class="row">${rk}<span class="sub">${rec}</span></div></div>`;
@@ -323,6 +358,18 @@ function renderGameday() {
   $$('[data-fix]', body).forEach(a => a.onclick = () => setSel(a.dataset.fix));
   if (G.silent) $$('.reveal', body).forEach(e => { e.style.transition = 'none'; e.classList.add('in'); }); else reveal(body);
   animateBars(body); loadTrendingInto($('#gdTrend'));
+}
+function chopCard(L, bits) {
+  const head = `<div class="row"><div class="lgname">${esc(L.name)}</div><span class="sp"></span>${bits}</div>`;
+  if (L.myElim) return `<div class="card mcard tilt reveal" data-lg="${esc(L.id)}">${head}<div class="chopped-out">🪓 Chopped in week ${L.myElim}</div><p class="sub">You're out of this one. The Leagues tab still shows who's left on the chopping block.</p></div>`;
+  const c = chopInfo(L);
+  if (!c.me) return `<div class="card mcard tilt reveal" data-lg="${esc(L.id)}">${head}<p class="sub" style="margin-top:14px">No scores yet this week.</p></div>`;
+  const safe = c.cushion == null || c.cushion >= 0;
+  return `<div class="card mcard chop tilt reveal" data-lg="${esc(L.id)}">${head}
+    <div class="vs"><div class="side me"><div class="tm">${esc(c.me.name)}</div><div class="sc num">${f1(c.me.pts)}</div><div class="pj">proj ${f1(c.me.proj)} · #${c.me.rank} of ${c.alive}</div></div><div class="mid" title="Lowest score is eliminated">🪓</div>
+    <div class="side r"><div class="tm">Chopping block</div><div class="sc num low">${c.low ? f1(c.low.proj) : '–'}</div><div class="pj">${c.low ? (safe ? 'lowest: ' : 'next-lowest: ') + esc(c.low.name) : ''}</div></div></div>
+    ${c.survive != null ? wpBar(c.survive) : ''}<div class="row" style="margin-top:8px">${c.survive != null ? `<b style="font-family:var(--font-jersey);color:${c.survive >= .75 ? 'var(--lime)' : c.survive >= .4 ? '#fde68a' : '#fda4af'}">${Math.round(c.survive * 100)}%</b><span class="sub">to survive</span>` : ''}<span class="sp"></span>
+    <span class="tag ${safe ? 'good' : 'inj'}">${c.cushion == null ? '' : (safe ? '+' : '−') + f1(Math.abs(c.cushion)) + (safe ? ' cushion' : ' short')}</span><span class="sub">${c.alive} of ${L.teams} left</span></div></div>`;
 }
 async function trending() {
   if (G.trend) return G.trend;
@@ -421,6 +468,7 @@ function renderLeagues() {
     $('#lgNotes').oninput = e => { const list = manualList(); const r = list.find(x => x.id === L.id); if (r) { r.notes = e.target.value; ST.set('manual', list); } };
     return;
   }
+  if (L.chopped) return renderChopLeague(L, body, bits, rosterRows, w);
   const m = matchupOf(L);
   const h2h = m ? (() => {
     const rows = L.slots.map((s, i) => {
@@ -441,6 +489,32 @@ function renderLeagues() {
     <div class="card hash"><div class="head"><h3>Your roster</h3><span class="sp"></span><a class="btn small" href="#startsit">Optimize →</a></div>${rosterRows(starters, 'Starters')}${rosterRows(bench, 'Bench')}${rosterRows(L.ir, 'Injured reserve')}${rosterRows(L.taxi, 'Taxi squad')}</div>
     <div class="card hash"><div class="head"><h3>League settings</h3></div><div class="row" style="margin-bottom:10px">${bits}</div><div class="mstat">${info.map(([l, v]) => `<div><span class="l">${esc(l)}</span><b>${esc(v)}</b></div>`).join('')}</div>
       <div class="eyebrow" style="margin:16px 0 6px">Lineup</div><div class="row">${L.slots.map(posTag).join(' ')}</div></div>
+  </div>`;
+  animateBars(body);
+}
+
+function renderChopLeague(L, body, bits, rosterRows, w) {
+  const c = chopInfo(L), st = L.lg.settings || {};
+  const block = c.rows.length ? `<div class="tablewrap"><table><thead><tr><th>#</th><th>Team</th><th class="r">Pts</th><th class="r">Proj</th><th class="r">Left</th></tr></thead><tbody>${c.rows.map((x, i) => `<tr class="${x.me ? 'me' : ''} ${i === c.rows.length - 1 ? 'danger' : ''}"><td class="num">${x.rank}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${i === c.rows.length - 1 ? '🪓 ' : ''}${esc(x.name)}</td><td class="r num">${f1(x.pts)}</td><td class="r num">${f1(x.proj)}</td><td class="r num">${x.rem ? Math.ceil(x.rem) : '✓'}</td></tr>`).join('')}</tbody></table></div>
+    <div class="sub" style="margin-top:6px">Sorted by projected final score. The bottom team gets chopped. "Left" is how many starters haven't finished.</div>` : '<div class="empty">No scores yet this week.</div>';
+  const top = L.myElim ? `<div class="chopped-out">🪓 You were chopped in week ${L.myElim}</div>`
+    : c.me ? `<div class="vs"><div class="side me"><div class="tm">${esc(c.me.name)}</div><div class="sc">${f1(c.me.pts)}</div><div class="pj">proj ${f1(c.me.proj)} · #${c.me.rank} of ${c.alive}</div></div><div class="mid">🪓</div><div class="side r"><div class="tm">Survival odds</div><div class="sc" style="color:${c.survive >= .75 ? 'var(--lime)' : c.survive >= .4 ? '#fde68a' : '#fda4af'}">${c.survive != null ? Math.round(c.survive * 100) + '%' : '–'}</div><div class="pj">${c.cushion != null ? (c.cushion >= 0 ? f1(c.cushion) + ' above' : f1(-c.cushion) + ' below') + ' the next-lowest' : ''}</div></div></div>${c.survive != null ? wpBar(c.survive) : ''}` : '';
+  const survivors = L.standings.filter(s => !s.elim), outs = L.standings.filter(s => s.elim);
+  const surv = `<div class="tablewrap"><table><thead><tr><th>#</th><th>Team</th><th class="r">Total pts</th><th class="r">Status</th></tr></thead><tbody>
+    ${survivors.map((s, i) => `<tr class="${s.me ? 'me' : ''}"><td class="num">${i + 1}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</td><td class="r num">${f1(s.pf)}</td><td class="r"><span class="tag good">Alive</span></td></tr>`).join('')}
+    ${outs.map(s => `<tr class="${s.me ? 'me' : ''}" style="opacity:.55"><td class="num">–</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</td><td class="r num">${f1(s.pf)}</td><td class="r"><span class="tag inj">Chopped wk ${s.elim}</span></td></tr>`).join('')}</tbody></table></div>`;
+  const myRoster = L.mine ? (L.mine.settings || {}) : {};
+  const info = [['Format', 'Chopped'], ['Teams left', `${c.alive} of ${L.teams}`], ['Last chop', c.lastChop ? 'Week ' + c.lastChop : 'None yet'], ['Reception', L.scoring.rec ?? 0], ['Pass TD', L.scoring.pass_td ?? 4],
+    ['FAAB budget', st.waiver_budget != null ? '$' + st.waiver_budget : '–'], ['Your FAAB left', st.waiver_budget != null && L.mine ? '$' + (st.waiver_budget - (myRoster.waiver_budget_used || 0)) : '–'], ['Waivers clear', st.waiver_clear_days != null ? st.waiver_clear_days + ' days' : '–']];
+  const starters = (L.starters || []).filter(id => id && id !== '0'), bench = L.myIds.filter(id => !starters.includes(id) && !L.ir.includes(id) && !L.taxi.includes(id));
+  body.innerHTML = `<div class="grid g2">
+    <div class="card hash"><div class="head"><h3>Week ${w} chopping block</h3><span class="sp"></span><a class="btn small" href="https://sleeper.com/leagues/${esc(L.id)}" target="_blank" rel="noopener">Open in Sleeper ↗</a></div>${top}<div style="margin-top:12px">${block}</div></div>
+    <div class="card hash"><div class="head"><h3>Survivors</h3><span class="sp"></span><span class="tag ${L.myElim ? 'inj' : 'good'}">${L.myElim ? 'You: chopped wk ' + L.myElim : 'You: alive'}</span></div>${surv}
+      <div class="sub" style="margin-top:6px">No opponents and no win/loss record here. You just need to avoid the lowest score each week.</div></div>
+    <div class="card hash"><div class="head"><h3>Your roster</h3><span class="sp"></span><a class="btn small" href="#startsit">Optimize →</a></div>${rosterRows(starters, 'Starters')}${rosterRows(bench, 'Bench')}${rosterRows(L.ir, 'Injured reserve')}</div>
+    <div class="card hash"><div class="head"><h3>League settings</h3></div><div class="row" style="margin-bottom:10px">${bits}</div><div class="mstat">${info.map(([l, v]) => `<div><span class="l">${esc(l)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+      <div class="eyebrow" style="margin:16px 0 6px">Lineup</div><div class="row">${L.slots.map(posTag).join(' ')}</div>
+      <div class="sub" style="margin-top:10px">Chopped teams' players go straight to waivers, so check the Waivers tab after every chop.</div></div>
   </div>`;
   animateBars(body);
 }
@@ -516,9 +590,21 @@ async function renderWaivers() {
     .map(id => { const e = evalPlayer(id, L, w); return { e, nxt: projFor(id, L, w + 1), g: ppg(id, L), tr: trendMap[id] || 0 }; })
     .filter(x => WVPOS === 'ALL' || x.e.p.pos === WVPOS)
     .sort((a, b) => (b.e.raw + b.nxt) - (a.e.raw + a.nxt)).slice(0, 40);
+  let chopHtml = '';
+  if (L.chopped) {
+    const lw = (L.lg.settings || {}).last_chopped_leg, dead = lw && L.rosters.find(r => (r.settings || {}).eliminated === lw);
+    if (dead) {
+      const mu = await sleeper(`/v1/league/${L.id}/matchups/${lw}`).catch(() => []), e = mu.find(m => m.roster_id === dead.roster_id);
+      const freed = ((e && e.players) || []).filter(id => !taken.has(id) && P[id]).map(id => ({ e: evalPlayer(id, L, w), nxt: projFor(id, L, w + 1) })).sort((a, b) => (b.e.raw + b.nxt) - (a.e.raw + a.nxt));
+      const st = L.lg.settings || {}, left = st.waiver_budget != null && L.mine ? st.waiver_budget - ((L.mine.settings || {}).waiver_budget_used || 0) : null;
+      chopHtml = `<div class="card hash chopwire" style="margin-bottom:16px"><div class="head"><h3>🪓 Just chopped: ${esc(L.teamName(dead))}</h3><span class="sp"></span><span class="sub">week ${lw}${left != null ? ` · you have $${left} of $${st.waiver_budget} FAAB` : ''}</span></div>
+        <div class="sub" style="margin-bottom:8px">Their whole roster went to waivers. These are still unclaimed, best first by the next two weeks' projections.</div>
+        ${freed.length ? `<div class="tablewrap"><table><thead><tr><th>Player</th><th class="r">Wk ${w} proj</th><th class="r">Wk ${w + 1} proj</th></tr></thead><tbody>${freed.map(x => `<tr><td>${pcell(x.e.p)}</td><td class="r num">${f1(x.e.raw)}</td><td class="r num">${f1(x.nxt)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Every one of their players has already been claimed.</div>'}</div>`;
+    }
+  }
   const drops = L.myIds.filter(id => !(L.starters || []).includes(id) && !L.ir.includes(id) && !L.taxi.includes(id))
     .map(id => ({ e: evalPlayer(id, L, w), g: ppg(id, L), nxt: projFor(id, L, w + 1) })).sort((a, b) => ((a.g || 0) + a.nxt) - ((b.g || 0) + b.nxt)).slice(0, 5);
-  body.innerHTML = `<div class="grid g2">
+  body.innerHTML = chopHtml + `<div class="grid g2">
     <div class="card hash"><div class="head"><h3>🔥 Hot and available</h3><span class="sp"></span><span class="sub">Sleeper adds, last 24h</span></div>
       ${hot.length ? hot.map(a => { const p = pl(a.player_id); return `<div class="row" style="padding:7px 0;border-bottom:1px dashed var(--line);flex-wrap:nowrap"><div style="flex:1;min-width:0">${pcell(p, `<span class="sub">${f1(projFor(p.id, L, w))} proj</span>`)}</div><span style="font:700 12px var(--font-mono);color:var(--lime)">▲${a.count.toLocaleString()}</span></div>`; }).join('') : '<div class="empty">Every trending player is already rostered here.</div>'}
       ${L.kind === 'manual' ? '<div class="sub" style="margin-top:8px">Manual league: only your roster is excluded, so double-check availability on your site.</div>' : ''}</div>
@@ -589,7 +675,7 @@ function gamesLiveNow() { const t = today(); return G.sched.some(g => g.week ===
 const liveEvery = () => gamesLiveNow() ? 30e3 : 5 * 60e3;
 async function refreshLive(manual) {
   if (LIVE.busy || !G.user) return; LIVE.busy = true;
-  const before = {}; for (const L of G.sleeperLeagues) { const m = matchupOf(L); if (m) before[L.id] = [m.myPts, m.oppPts]; }
+  const before = {}; for (const L of G.sleeperLeagues) { if (L.chopped) { const p = myPoints(L); if (p != null) before[L.id] = [p, Infinity]; continue; } const m = matchupOf(L); if (m) before[L.id] = [m.myPts, m.oppPts]; }
   const wk = G.week;
   try {
     await loadCore(true);
@@ -606,7 +692,8 @@ async function refreshLive(manual) {
 }
 function flashChanges(before) {
   for (const L of G.sleeperLeagues) {
-    const m = matchupOf(L), b = before[L.id]; if (!m || !b) continue;
+    const b = before[L.id]; if (!b) continue;
+    const m = L.chopped ? { myPts: myPoints(L) || 0, oppPts: 0 } : matchupOf(L); if (!m) continue;
     const card = document.querySelector(`.mcard[data-lg="${CSS.escape(L.id)}"]`); if (!card) continue;
     const [me, op] = card.querySelectorAll('.sc');
     const bump = el => { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); };
