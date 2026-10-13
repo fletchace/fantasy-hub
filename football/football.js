@@ -25,7 +25,7 @@ function pcell(p, sub = '', extra = '') {
 }
 
 /* ---------- global state ---------- */
-const G = { st: null, season: '2026', week: 1, sched: [], wk: {}, stats: null, user: null, sleeperLeagues: [], sel: ST.get('sel', null), gamesMemo: {} };
+const G = { st: null, season: '2026', week: 1, sched: [], wk: {}, stats: null, user: null, sleeperLeagues: [], espnLeagues: [], sel: ST.get('sel', null), gamesMemo: {} };
 const PRESETS = {
   ppr: { pass_yd: .04, pass_td: 4, pass_int: -1, pass_2pt: 2, rush_yd: .1, rush_td: 6, rush_2pt: 2, rec: 1, rec_yd: .1, rec_td: 6, rec_2pt: 2, fum_lost: -2, fgm_0_19: 3, fgm_20_29: 3, fgm_30_39: 3, fgm_40_49: 4, fgm_50p: 5, xpm: 1, fgmiss: -1, xpmiss: -1 },
 };
@@ -57,7 +57,7 @@ async function loadWeek(w, fresh = false) {
     if (pp) {
       let p = P[x.player_id];
       if (!p) p = P[x.player_id] = { id: x.player_id, name: `${pp.first_name || ''} ${pp.last_name || ''}`.trim(), pos: pp.position, team: x.team, dob: null };
-      if (w === G.week) p.inj = pp.injury_status || null;
+      if (w === G.week) { p.inj = pp.injury_status || null; p.injPart = pp.injury_body_part || null; p.injNotes = pp.injury_notes || null; }
       if (x.team) p.team = x.team;
     }
   }
@@ -84,7 +84,7 @@ function scoreStats(s, sc, pos) {
 }
 function projFor(id, L, w) { const e = G.wk[w] && G.wk[w][id]; return e ? scoreStats(e.s, L ? L.scoring : null, pl(id).pos) : 0; }
 function actualPts(id, L, w) {
-  if (!L || w !== G.week || L.kind !== 'sleeper' || !L.matchups) return null;
+  if (!L || w !== G.week || !L.live || !L.matchups) return null;
   for (const m of L.matchups) if (m.players_points && id in m.players_points) return m.players_points[id];
   return null;
 }
@@ -111,7 +111,7 @@ function buildSleeperLeague(lg, rosters, users, mu) {
     .sort(chopped ? (a, b) => (!!a.elim - !!b.elim) || (b.elim - a.elim) || b.pf - a.pf : (a, b) => b.w - a.w || a.l - b.l || b.pf - a.pf);
   standings.forEach((s, i) => s.rank = i + 1);
   const rosterById = {}; for (const r of rosters) rosterById[r.roster_id] = r;
-  return { id: lg.league_id, kind: 'sleeper', name: lg.name, lg, scoring: lg.scoring_settings || {}, slots, rosters, rosterById, users: umap, teamName, mine, standings, matchups: mu || [],
+  return { id: lg.league_id, kind: 'sleeper', live: true, site: 'Sleeper', siteUrl: 'https://sleeper.com/leagues/' + lg.league_id, name: lg.name, lg, scoring: lg.scoring_settings || {}, slots, rosters, rosterById, users: umap, teamName, mine, standings, matchups: mu || [],
     teams: rosters.length, playoff: (lg.settings && lg.settings.playoff_teams) || 6, type: lg.settings && lg.settings.type, chopped,
     myElim: (mine && (mine.settings || {}).eliminated) || 0,
     myIds: mine ? (mine.players || []) : [], starters: mine ? (mine.starters || []) : null, ir: (mine && mine.reserve) || [], taxi: (mine && mine.taxi) || [], me: standings.find(s => s.me) };
@@ -121,7 +121,7 @@ function buildManual(m) {
   return { id: m.id, kind: 'manual', name: m.name, platform: m.platform, url: m.url, scoring: PRESETS[m.scoring || 'ppr'], slots, myIds: m.roster || [], starters: null, ir: [], taxi: [], standings: null, teams: null, m };
 }
 const manualList = () => ST.get('manual', []);
-const allLeagues = () => [...G.sleeperLeagues, ...manualList().map(buildManual)];
+const allLeagues = () => [...G.sleeperLeagues, ...G.espnLeagues, ...manualList().map(buildManual)];
 const getLeague = id => allLeagues().find(l => l.id === id);
 function selLeague() { const ls = allLeagues(); if (!ls.length) return null; return ls.find(l => l.id === G.sel) || ls[0]; }
 function setSel(id) { G.sel = id; ST.set('sel', id); }
@@ -133,6 +133,7 @@ function fmtBits(L) {
   if (L.chopped) bits.unshift('Chopped'); else if (L.type === 2) bits.push('Dynasty'); else if (L.type === 1) bits.push('Keeper');
   if (L.teams) bits.push(L.teams + ' teams');
   if (L.kind === 'manual') bits.push(L.platform || 'Manual');
+  if (L.kind === 'espn') bits.push('ESPN');
   return bits;
 }
 async function loadUser(name, fresh = false, freshProj = false) {
@@ -146,6 +147,114 @@ async function loadUser(name, fresh = false, freshProj = false) {
     return buildSleeperLeague(lg, rosters, users, mu);
   }));
   saveSummaries();
+}
+
+
+/* ---------- ESPN leagues ----------
+   Read straight from ESPN's fantasy API, which allows this site. Public leagues need only the link; private leagues
+   work when you're signed in to ESPN in this browser, because the request carries your own ESPN session.
+   Only the league id and your team id are saved (in this browser). */
+const ESPN_TEAMS = { 1: 'ATL', 2: 'BUF', 3: 'CHI', 4: 'CIN', 5: 'CLE', 6: 'DAL', 7: 'DEN', 8: 'DET', 9: 'GB', 10: 'TEN', 11: 'IND', 12: 'KC', 13: 'LV', 14: 'LAR', 15: 'MIA', 16: 'MIN', 17: 'NE', 18: 'NO', 19: 'NYG', 20: 'NYJ', 21: 'PHI', 22: 'ARI', 23: 'PIT', 24: 'LAC', 25: 'SF', 26: 'SEA', 27: 'TB', 28: 'WAS', 29: 'CAR', 30: 'JAX', 33: 'BAL', 34: 'HOU' };
+const ESPN_POS = { 1: 'QB', 2: 'RB', 3: 'WR', 4: 'TE', 5: 'K', 16: 'DEF' };
+const ESPN_SLOT = { 0: 'QB', 2: 'RB', 3: 'WRRB_FLEX', 4: 'WR', 5: 'REC_FLEX', 6: 'TE', 7: 'SUPER_FLEX', 16: 'DEF', 17: 'K', 23: 'FLEX' };
+const ESPN_ORDER = [0, 2, 4, 6, 3, 5, 23, 7, 16, 17];
+const ESPN_INJ = { OUT: 'Out', QUESTIONABLE: 'Questionable', DOUBTFUL: 'Doubtful', INJURY_RESERVE: 'IR', SUSPENSION: 'Sus' };
+const espnSaved = () => ST.get('espn', []);
+const normName = s => String(s || '').toLowerCase().replace(/[.'’]/g, '').replace(/\b(jr|sr|ii|iii|iv|v)\b/g, '').replace(/[^a-z]/g, '');
+let NAME_IX = null;
+function nameIndex() {
+  if (NAME_IX) return NAME_IX; NAME_IX = {};
+  for (const p of Object.values(P)) { if (p.pos === 'DEF' || String(p.id).startsWith('espn_')) continue; const k = normName(p.name); if (!NAME_IX[k + '|' + p.pos]) NAME_IX[k + '|' + p.pos] = p.id; if (!NAME_IX[k]) NAME_IX[k] = p.id; }
+  return NAME_IX;
+}
+function espnToSleeper(pp) {
+  const x = pp && pp.player; if (!x) return null;
+  const pos = ESPN_POS[x.defaultPositionId] || '?', team = ESPN_TEAMS[x.proTeamId] || 'FA';
+  if (pos === 'DEF') { if (!P[team]) P[team] = { id: team, name: team + ' D/ST', pos: 'DEF', team }; return team; }
+  const ix = nameIndex(), k = normName(x.fullName);
+  let id = ix[k + '|' + pos] || ix[k];
+  if (!id) { id = 'espn_' + x.id; if (!P[id]) P[id] = { id, name: x.fullName, pos, team, dob: null }; }
+  const p = P[id];
+  if (!p.inj && x.injuryStatus && x.injuryStatus !== 'ACTIVE') p.inj = ESPN_INJ[x.injuryStatus] || null;
+  return id;
+}
+const espnUrl = x => 'https://fantasy.espn.com/football/league?leagueId=' + x.leagueId;
+async function espnFetch(leagueId, season, week) {
+  const url = 'https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/' + season + '/segments/0/leagues/' + leagueId + '?scoringPeriodId=' + week + '&view=mTeam&view=mRoster&view=mSettings&view=mMatchupScore&view=mScoreboard';
+  const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
+  if (r.status === 401 || r.status === 403) { const e = new Error('private'); e.code = 'private'; throw e; }
+  if (r.status === 404) { const e = new Error('notfound'); e.code = 'notfound'; throw e; }
+  if (!r.ok) throw new Error('ESPN ' + r.status);
+  return r.json();
+}
+function buildEspnLeague(d, saved) {
+  const st = d.settings || {}, counts = (st.rosterSettings || {}).lineupSlotCounts || {};
+  const slotIds = []; for (const sid of ESPN_ORDER) for (let i = 0; i < (counts[sid] || 0); i++) slotIds.push(sid);
+  for (const [sid, n] of Object.entries(counts)) if (!ESPN_ORDER.includes(+sid) && +sid !== 20 && +sid !== 21) for (let i = 0; i < n; i++) slotIds.push(+sid);
+  const slots = slotIds.map(s => ESPN_SLOT[s] || 'IDP');
+  const items = (st.scoringSettings || {}).scoringItems || [], ptsOf = id => { const it = items.find(i => i.statId === id); return it ? it.points : null; };
+  const scoring = Object.assign({}, PRESETS.ppr, { rec: ptsOf(53) == null ? 0 : ptsOf(53), pass_td: ptsOf(4) == null ? 4 : ptsOf(4) });
+  const tname = t => t ? (t.name || ((t.location || '') + ' ' + (t.nickname || '')).trim() || 'Team ' + t.id) : '?';
+  const align = entries => {
+    const ids = new Array(slotIds.length).fill('0'), pts = new Array(slotIds.length).fill(0), used = new Array(slotIds.length).fill(false);
+    for (const e of entries) { if (e.lineupSlotId === 20 || e.lineupSlotId === 21) continue; const i = slotIds.findIndex((s, k) => !used[k] && s === e.lineupSlotId); if (i < 0) continue; used[i] = true; ids[i] = espnToSleeper(e.playerPoolEntry) || '0'; pts[i] = (e.playerPoolEntry && e.playerPoolEntry.appliedStatTotal) || 0; }
+    return { ids, pts };
+  };
+  const rosters = (d.teams || []).map(t => {
+    const ents = (t.roster && t.roster.entries) || [], rec = (t.record && t.record.overall) || {}, pf = rec.pointsFor || 0, pa = rec.pointsAgainst || 0;
+    return { roster_id: t.id, owner_id: t.primaryOwner, team: t, players: ents.map(e => espnToSleeper(e.playerPoolEntry)).filter(Boolean), starters: align(ents).ids,
+      reserve: ents.filter(e => e.lineupSlotId === 21).map(e => espnToSleeper(e.playerPoolEntry)).filter(Boolean), taxi: [],
+      settings: { wins: rec.wins || 0, losses: rec.losses || 0, ties: rec.ties || 0, fpts: Math.floor(pf), fpts_decimal: Math.round((pf % 1) * 100), fpts_against: Math.floor(pa), fpts_against_decimal: Math.round((pa % 1) * 100) } };
+  });
+  const byId = {}; for (const r of rosters) byId[r.roster_id] = r;
+  const mine = byId[saved.teamId] || null, period = (d.status || {}).currentMatchupPeriod || d.scoringPeriodId, matchups = [];
+  for (const m of (d.schedule || []).filter(x => x.matchupPeriodId === period)) for (const side of [m.home, m.away]) {
+    if (!side) continue;
+    const ents = (side.rosterForCurrentScoringPeriod && side.rosterForCurrentScoringPeriod.entries) || [], a = align(ents), pp = {};
+    for (const e of ents) { const id = espnToSleeper(e.playerPoolEntry); if (id) pp[id] = (e.playerPoolEntry && e.playerPoolEntry.appliedStatTotal) || 0; }
+    matchups.push({ roster_id: side.teamId, matchup_id: m.away ? m.id : null, points: side.totalPointsLive != null ? side.totalPointsLive : (side.totalPoints || 0), starters: ents.length ? a.ids : ((byId[side.teamId] || {}).starters || []), starters_points: a.pts, players_points: pp });
+  }
+  const standings = rosters.map(r => ({ rid: r.roster_id, name: tname(r.team), w: r.settings.wins, l: r.settings.losses, t: r.settings.ties, pf: r.settings.fpts + r.settings.fpts_decimal / 100, pa: r.settings.fpts_against + r.settings.fpts_against_decimal / 100, me: !!(mine && r.roster_id === mine.roster_id) }))
+    .sort((a, b) => b.w - a.w || a.l - b.l || b.pf - a.pf);
+  standings.forEach((s, i) => s.rank = i + 1);
+  const budget = (st.acquisitionSettings || {}).acquisitionBudget;
+  return { id: 'espn_' + saved.leagueId, kind: 'espn', live: true, site: 'ESPN', siteUrl: espnUrl(saved), name: st.name || 'ESPN league', lg: { settings: { waiver_budget: budget == null ? null : budget } },
+    scoring, slots, rosters, rosterById: byId, teamName: r => tname(r && r.team), mine, standings, matchups, teams: rosters.length, playoff: (st.scheduleSettings || {}).playoffTeamCount || 6, type: 0,
+    myIds: mine ? mine.players : [], starters: mine ? mine.starters : null, ir: mine ? mine.reserve : [], taxi: [], me: standings.find(s => s.me), espn: saved };
+}
+async function loadEspn() {
+  const list = espnSaved(); if (!list.length) { G.espnLeagues = []; return; }
+  G.espnLeagues = (await Promise.all(list.map(async x => { try { return buildEspnLeague(await espnFetch(x.leagueId, x.season || G.season, G.week), x); } catch (e) { return null; } }))).filter(Boolean);
+}
+const liveLeagues = () => [...G.sleeperLeagues, ...G.espnLeagues];
+function espnForm() {
+  openModal('<div class="modal-head"><div><div class="eyebrow">ESPN league</div><h2>Add from a link</h2></div><button class="xbtn" data-close aria-label="Close">✕</button></div>'
+    + '<div class="modal-body"><p class="sub">Open your league on ESPN, copy the address from the address bar (your team page is best because it includes your team), and paste it here. No password needed.</p>'
+    + '<form id="efForm" class="row"><label class="vh" for="efUrl">ESPN league link</label><input type="text" id="efUrl" placeholder="https://fantasy.espn.com/football/team?leagueId=…&amp;teamId=…" style="flex:1 1 320px" required autocomplete="off"><button class="btn gold" type="submit">Connect</button></form>'
+    + '<div id="efOut" style="margin-top:14px"></div></div>');
+  $('#efForm').onsubmit = async e => {
+    e.preventDefault();
+    const raw = $('#efUrl').value.trim(), lid = ((raw.match(/leagueId=(\d+)/i) || raw.match(/^(\d{3,})$/) || [])[1]), tid = +((raw.match(/teamId=(\d+)/i) || [])[1] || 0), season = +((raw.match(/seasonId=(\d{4})/i) || [])[1] || G.season);
+    const out = $('#efOut');
+    if (!lid) { out.innerHTML = '<div class="alert q"><span class="k">Link</span><div>That link doesn\'t have a league id in it. Copy the address while you\'re on any page inside your ESPN league.</div></div>'; return; }
+    out.innerHTML = '<div class="spinner"></div>';
+    try {
+      const d = await espnFetch(lid, season, G.week);
+      const teams = (d.teams || []).map(t => ({ id: t.id, name: t.name || ((t.location || '') + ' ' + (t.nickname || '')).trim() })).sort((a, b) => a.name.localeCompare(b.name));
+      out.innerHTML = '<div class="alert ok"><span class="k">Found</span><div><b>' + esc((d.settings || {}).name || 'ESPN league') + '</b> · ' + teams.length + ' teams</div></div>'
+        + '<label class="f" style="margin-top:10px">Which team is yours?<select id="efTeam">' + teams.map(t => '<option value="' + t.id + '"' + (t.id === tid ? ' selected' : '') + '>' + esc(t.name) + '</option>').join('') + '</select></label>'
+        + '<div class="row" style="margin-top:12px"><span class="sp"></span><button class="btn gold" id="efSave">Add league</button></div>';
+      $('#efSave').onclick = async () => {
+        const list = espnSaved().filter(x => String(x.leagueId) !== String(lid)); list.push({ leagueId: lid, teamId: +$('#efTeam').value, season, name: (d.settings || {}).name || '' }); ST.set('espn', list);
+        setSel('espn_' + lid); closeModal(); toast('ESPN league added'); await loadEspn(); saveSummaries(); LIVE.last = LIVE.last || Date.now(); scheduleLive(); rerender();
+      };
+    } catch (err) {
+      out.innerHTML = err.code === 'private'
+        ? '<div class="alert q"><span class="k">Private</span><div><b>ESPN says this league is private.</b> Two ways in, and neither needs your password:<ol style="margin:8px 0 0;padding-left:18px;line-height:1.6"><li>Sign in at <a href="https://www.espn.com/fantasy/football/" target="_blank" rel="noopener">espn.com</a> in this same browser, then click Connect again. Your browser sends ESPN your own login. If it still says private, Chrome is blocking ESPN\'s login cookie on other sites: open Chrome Settings → Privacy and security → Third-party cookies → <i>Sites allowed to use third-party cookies</i> → Add <code>[*.]espn.com</code>.</li><li>Or have the commissioner turn on <i>League Manager → Edit basic settings → Make league viewable to public</i>.</li></ol></div></div>'
+        : err.code === 'notfound' ? '<div class="alert out"><span class="k">Not found</span><div>No ' + season + ' ESPN football league with id ' + esc(lid) + '. Check the link.</div></div>'
+        : '<div class="alert out"><span class="k">Error</span><div>Couldn\'t reach ESPN right now. Try again in a minute.</div></div>';
+    }
+  };
 }
 
 /* ---------- matchups + alerts ---------- */
@@ -185,7 +294,7 @@ function chopInfo(L) {
 }
 const myPoints = L => { const e = L.mine && L.matchups.find(m => m.roster_id === L.mine.roster_id); return e ? e.points || 0 : null; };
 function matchupOf(L) {
-  if (L.kind !== 'sleeper' || !L.mine || !L.matchups.length || L.chopped) return null;
+  if (!L.live || !L.mine || !L.matchups.length || L.chopped) return null;
   const me = L.matchups.find(m => m.roster_id === L.mine.roster_id); if (!me) return null;
   const opp = me.matchup_id != null ? L.matchups.find(m => m.matchup_id === me.matchup_id && m.roster_id !== me.roster_id) : null;
   const a = liveProj(me, L, G.week), b = opp ? liveProj(opp, L, G.week) : { proj: 0, rem: 0 };
@@ -239,7 +348,7 @@ function alertsFor(L) {
   return out;
 }
 function saveSummaries() {
-  const sums = G.sleeperLeagues.filter(L => L.me).map(L => {
+  const sums = liveLeagues().filter(L => L.me).map(L => {
     if (L.chopped) {
       if (L.myElim) return { name: L.name, record: 'CHOPPED', rank: 0, teams: 0, playoff: 0, line: `Eliminated in week ${L.myElim}` };
       const c = chopInfo(L);
@@ -265,7 +374,7 @@ function updateBoard() {
   const open = G.sched.filter(g => g.status !== 'complete').sort((a, b) => a.date.localeCompare(b.date));
   if (open.length) nextKick = kickoffTime(open[0].date);
   const ls = allLeagues(); $('#hbLeagues').textContent = ls.length;
-  let w = 0, l = 0, t = 0; for (const L of G.sleeperLeagues) if (L.me && !L.chopped) { w += L.me.w; l += L.me.l; t += L.me.t; }
+  let w = 0, l = 0, t = 0; for (const L of liveLeagues()) if (L.me && !L.chopped) { w += L.me.w; l += L.me.l; t += L.me.t; }
   $('#hbRecord').textContent = `${w}-${l}${t ? '-' + t : ''}`;
   const n = ls.reduce((s, L) => s + alertsFor(L).length, 0);
   $('#hbAlerts').textContent = ls.length ? (n ? n : 'ALL CLEAR') : '–';
@@ -301,10 +410,11 @@ function needLeagues(el) {
 function renderConnect() {
   const box = $('#connectBox'), name = ST.get('username', '');
   if (G.user) {
-    box.innerHTML = `<div class="card" style="margin-bottom:16px;padding:12px 16px"><div class="row"><span class="tag good live-dot">● LIVE</span><b>${esc(G.user.display_name || G.user.username)}</b><span class="sub">${G.sleeperLeagues.length} Sleeper league${G.sleeperLeagues.length === 1 ? '' : 's'} · ${manualList().length} manual · Week ${G.week}</span><span class="sub" id="syncAgo" style="font-size:12px"></span><span class="sp"></span><button class="btn small" id="gdRefresh">↻ Refresh</button><button class="btn small" id="gdManual">+ Add ESPN/Yahoo league</button><button class="btn small ghost" id="gdSwitch">Switch user</button></div></div>`;
+    box.innerHTML = `<div class="card" style="margin-bottom:16px;padding:12px 16px"><div class="row"><span class="tag good live-dot">● LIVE</span><b>${esc(G.user.display_name || G.user.username)}</b><span class="sub">${G.sleeperLeagues.length} Sleeper league${G.sleeperLeagues.length === 1 ? '' : 's'} · ${manualList().length} manual · Week ${G.week}</span><span class="sub" id="syncAgo" style="font-size:12px"></span><span class="sp"></span><button class="btn small" id="gdRefresh">↻ Refresh</button><button class="btn small" id="gdEspn">+ ESPN league (link)</button><button class="btn small" id="gdManual">+ Other league</button><button class="btn small ghost" id="gdSwitch">Switch user</button></div></div>`;
     $('#gdRefresh').onclick = async () => { $('#gdRefresh').disabled = true; await refreshLive(true); toast('Scores refreshed'); const b = $('#gdRefresh'); if (b) b.disabled = false; };
     $('#gdSwitch').onclick = () => { G.user = null; G.sleeperLeagues = []; ST.del('username'); ST.del('summaries'); renderGameday(); updateBoard(); };
     $('#gdManual').onclick = () => manualForm();
+    $('#gdEspn').onclick = () => espnForm();
     return;
   }
   box.innerHTML = `<div class="connect" style="margin-bottom:16px">
@@ -312,7 +422,7 @@ function renderConnect() {
       <p class="sub">Enter your Sleeper username. Football HQ reads your leagues, rosters and matchups from Sleeper's public API. It's read-only and doesn't need a password.</p>
       <form id="cnForm"><label class="vh" for="cnName">Sleeper username</label><input type="text" id="cnName" placeholder="Sleeper username" value="${esc(name)}" autocomplete="username" required><button class="btn gold" type="submit">Load my leagues</button></form>
       <div class="sub" id="cnMsg" style="margin-top:8px"></div></div>
-    <div class="card"><div class="eyebrow">Not on Sleeper?</div><h3 style="margin:8px 0 6px">Add an ESPN or Yahoo league</h3><p class="sub">Type in your roster and scoring, and Start/Sit and Waivers work off Sleeper's projections. You can add as many as you like.</p><button class="btn" id="cnManual">+ Add a league by hand</button>
+    <div class="card"><div class="eyebrow">ESPN or other sites</div><h3 style="margin:8px 0 6px">Add an ESPN league from a link</h3><p class="sub">Paste your ESPN league link and it loads live: rosters, matchups, standings and scores. For Yahoo or anything else, add the league by hand.</p><div class="row"><button class="btn gold" id="cnEspn">+ ESPN league (link)</button><button class="btn" id="cnManual">+ Add a league by hand</button></div>
       <ul class="sub" style="margin:14px 0 0;padding-left:18px;line-height:1.8"><li>Live scores and win odds for every matchup</li><li>Lineup alerts for byes, injuries and empty slots</li><li>Waiver targets that are actually free in your league</li></ul></div></div>`;
   $('#cnForm').onsubmit = async e => {
     e.preventDefault(); const v = $('#cnName').value.trim(); if (!v) return;
@@ -321,6 +431,7 @@ function renderConnect() {
     catch (err) { $('#cnMsg').textContent = err.message || 'Could not reach Sleeper.'; }
   };
   $('#cnManual').onclick = () => manualForm();
+  $('#cnEspn').onclick = () => espnForm();
 }
 function wpBar(wp) { const pc = Math.round(clamp(wp, .02, .98) * 100); return `<div class="wp" data-w="${pc}"><i style="width:50%"></i><b style="left:50%"></b></div>`; }
 function animateBars(root) { if (G.silent) { $$('.wp', root).forEach(el => { const i = el.querySelector('i'), b = el.querySelector('b'); i.style.transition = b.style.transition = 'none'; i.style.width = b.style.left = el.dataset.w + '%'; }); return; } requestAnimationFrame(() => setTimeout(() => $$('.wp', root).forEach(el => { const w = el.dataset.w + '%'; el.querySelector('i').style.width = w; el.querySelector('b').style.left = w; }), 60)); }
@@ -376,10 +487,10 @@ async function trending() {
   const [add, drop] = await Promise.all([sleeper('/v1/players/nfl/trending/add?lookback_hours=24&limit=40'), sleeper('/v1/players/nfl/trending/drop?lookback_hours=24&limit=25')]);
   return (G.trend = { add, drop });
 }
-function rosteredSet(L) { const s = new Set(); if (L.kind === 'sleeper') for (const r of L.rosters) { for (const id of (r.players || [])) s.add(id); for (const id of (r.taxi || [])) s.add(id); for (const id of (r.reserve || [])) s.add(id); } else for (const id of L.myIds) s.add(id); return s; }
+function rosteredSet(L) { const s = new Set(); if (L.live) for (const r of L.rosters) { for (const id of (r.players || [])) s.add(id); for (const id of (r.taxi || [])) s.add(id); for (const id of (r.reserve || [])) s.add(id); } else for (const id of L.myIds) s.add(id); return s; }
 async function loadTrendingInto(el) {
   try {
-    const t = await trending(), sl = G.sleeperLeagues, sets = sl.map(rosteredSet);
+    const t = await trending(), sl = liveLeagues(), sets = sl.map(rosteredSet);
     el.innerHTML = t.add.slice(0, 10).map((a, i) => {
       const p = pl(a.player_id), free = sets.filter(s => !s.has(a.player_id)).length;
       return `<div class="row" style="padding:7px 0;border-bottom:1px dashed var(--line);flex-wrap:nowrap"><span class="team" style="min-width:26px;text-align:center">${i + 1}</span><div style="flex:1;min-width:0">${pcell(p)}</div>${sl.length ? `<span class="tag ${free ? 'good' : 'q'}">${free ? `Free in ${free}/${sl.length}` : 'Rostered'}</span>` : ''}<span class="up num" style="font:700 12px var(--font-mono);color:var(--lime)">▲${a.count.toLocaleString()}</span></div>`;
@@ -484,13 +595,14 @@ function renderLeagues() {
   const sc = L.scoring, st = L.lg.settings || {};
   const info = [['Reception', sc.rec ?? 0], ['Pass TD', sc.pass_td ?? 4], ['Pass yds / pt', sc.pass_yd ? Math.round(1 / sc.pass_yd) : '–'], ['Rush/Rec yds / pt', sc.rush_yd ? Math.round(1 / sc.rush_yd) : '–'], ['TE bonus / rec', sc.bonus_rec_te || 0], ['INT', sc.pass_int ?? -1], ['Fumble lost', sc.fum_lost ?? -2], ['Playoff teams', L.playoff], ['FAAB budget', st.waiver_budget != null ? '$' + st.waiver_budget : '–'], ['Trade deadline', st.trade_deadline ? 'Week ' + st.trade_deadline : 'None']];
   body.innerHTML = `<div class="grid g2">
-    <div class="card hash"><div class="head"><h3>Week ${w} matchup</h3><span class="sp"></span><a class="btn small" href="https://sleeper.com/leagues/${esc(L.id)}" target="_blank" rel="noopener">Open in Sleeper ↗</a></div>${h2h}</div>
+    <div class="card hash"><div class="head"><h3>Week ${w} matchup</h3><span class="sp"></span><a class="btn small" href="${esc(L.siteUrl || '#')}" target="_blank" rel="noopener">Open in ${esc(L.site || 'Sleeper')} ↗</a></div>${h2h}</div>
     <div class="card hash"><div class="head"><h3>Standings</h3><span class="sp"></span>${L.me ? `<span class="tag ${L.me.rank <= L.playoff ? 'good' : 'q'}">You're #${L.me.rank}</span>` : ''}</div>${stand}</div>
     <div class="card hash"><div class="head"><h3>Your roster</h3><span class="sp"></span><a class="btn small" href="#startsit">Optimize →</a></div>${rosterRows(starters, 'Starters')}${rosterRows(bench, 'Bench')}${rosterRows(L.ir, 'Injured reserve')}${rosterRows(L.taxi, 'Taxi squad')}</div>
-    <div class="card hash"><div class="head"><h3>League settings</h3></div><div class="row" style="margin-bottom:10px">${bits}</div><div class="mstat">${info.map(([l, v]) => `<div><span class="l">${esc(l)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    <div class="card hash"><div class="head"><h3>League settings</h3><span class="sp"></span>${L.kind === 'espn' ? '<button class="btn small ghost" id="lgRmEspn">Remove league</button>' : ''}</div><div class="row" style="margin-bottom:10px">${bits}</div><div class="mstat">${info.map(([l, v]) => `<div><span class="l">${esc(l)}</span><b>${esc(v)}</b></div>`).join('')}</div>
       <div class="eyebrow" style="margin:16px 0 6px">Lineup</div><div class="row">${L.slots.map(posTag).join(' ')}</div></div>
   </div>`;
   animateBars(body);
+  const rm = $('#lgRmEspn'); if (rm) rm.onclick = () => { if (!confirm('Remove ' + L.name + ' from Football HQ?')) return; ST.set('espn', espnSaved().filter(x => 'espn_' + x.leagueId !== L.id)); G.espnLeagues = G.espnLeagues.filter(x => x.id !== L.id); saveSummaries(); toast('League removed'); rerender(); };
 }
 
 function renderChopLeague(L, body, bits, rosterRows, w) {
@@ -508,11 +620,11 @@ function renderChopLeague(L, body, bits, rosterRows, w) {
     ['FAAB budget', st.waiver_budget != null ? '$' + st.waiver_budget : '–'], ['Your FAAB left', st.waiver_budget != null && L.mine ? '$' + (st.waiver_budget - (myRoster.waiver_budget_used || 0)) : '–'], ['Waivers clear', st.waiver_clear_days != null ? st.waiver_clear_days + ' days' : '–']];
   const starters = (L.starters || []).filter(id => id && id !== '0'), bench = L.myIds.filter(id => !starters.includes(id) && !L.ir.includes(id) && !L.taxi.includes(id));
   body.innerHTML = `<div class="grid g2">
-    <div class="card hash"><div class="head"><h3>Week ${w} chopping block</h3><span class="sp"></span><a class="btn small" href="https://sleeper.com/leagues/${esc(L.id)}" target="_blank" rel="noopener">Open in Sleeper ↗</a></div>${top}<div style="margin-top:12px">${block}</div></div>
+    <div class="card hash"><div class="head"><h3>Week ${w} chopping block</h3><span class="sp"></span><a class="btn small" href="${esc(L.siteUrl || '#')}" target="_blank" rel="noopener">Open in ${esc(L.site || 'Sleeper')} ↗</a></div>${top}<div style="margin-top:12px">${block}</div></div>
     <div class="card hash"><div class="head"><h3>Survivors</h3><span class="sp"></span><span class="tag ${L.myElim ? 'inj' : 'good'}">${L.myElim ? 'You: chopped wk ' + L.myElim : 'You: alive'}</span></div>${surv}
       <div class="sub" style="margin-top:6px">No opponents and no win/loss record here. You just need to avoid the lowest score each week.</div></div>
     <div class="card hash"><div class="head"><h3>Your roster</h3><span class="sp"></span><a class="btn small" href="#startsit">Optimize →</a></div>${rosterRows(starters, 'Starters')}${rosterRows(bench, 'Bench')}${rosterRows(L.ir, 'Injured reserve')}</div>
-    <div class="card hash"><div class="head"><h3>League settings</h3></div><div class="row" style="margin-bottom:10px">${bits}</div><div class="mstat">${info.map(([l, v]) => `<div><span class="l">${esc(l)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    <div class="card hash"><div class="head"><h3>League settings</h3><span class="sp"></span>${L.kind === 'espn' ? '<button class="btn small ghost" id="lgRmEspn">Remove league</button>' : ''}</div><div class="row" style="margin-bottom:10px">${bits}</div><div class="mstat">${info.map(([l, v]) => `<div><span class="l">${esc(l)}</span><b>${esc(v)}</b></div>`).join('')}</div>
       <div class="eyebrow" style="margin:16px 0 6px">Lineup</div><div class="row">${L.slots.map(posTag).join(' ')}</div>
       <div class="sub" style="margin-top:10px">Chopped teams' players go straight to waivers, so check the Waivers tab after every chop.</div></div>
   </div>`;
@@ -546,8 +658,8 @@ async function renderStartSit() {
       <div class="lineup"><div class="hd">Slot</div><div class="hd">${hasCur ? 'Current' : ''}</div><div></div><div class="hd">Best</div>${rows}</div></div>
     <div class="grid" style="align-content:start;gap:16px">
       <div class="card" style="text-align:center"><div class="eyebrow">${hasCur ? 'Projected gain' : 'Best lineup projects'}</div><div class="bigdelta" id="ssBig">0.0</div>
-        <div class="sub">${hasCur ? (changes ? `${changes} change${changes === 1 ? '' : 's'} to make in Sleeper` : 'Your lineup is already optimal 👌') : `${esc(L.platform || 'Manual')} league · set it by hand`}</div>
-        ${hasCur && changes ? `<a class="btn gold" style="margin-top:12px" href="https://sleeper.com/leagues/${esc(L.id)}" target="_blank" rel="noopener">Make the swaps in Sleeper ↗</a>` : ''}</div>
+        <div class="sub">${hasCur ? (changes ? `${changes} change${changes === 1 ? '' : 's'} to make in ${esc(L.site || 'Sleeper')}` : 'Your lineup is already optimal 👌') : `${esc(L.platform || 'Manual')} league · set it by hand`}</div>
+        ${hasCur && changes ? `<a class="btn gold" style="margin-top:12px" href="${esc(L.siteUrl || '#')}" target="_blank" rel="noopener">Make the swaps in ${esc(L.site || 'Sleeper')} ↗</a>` : ''}</div>
       <div class="card hash"><div class="head"><h3>Bench</h3></div>${o.bench.length ? o.bench.map(e => `<div class="slot"><span>${posTag(e.p.pos)}</span>${pcell(e.p, e.opp.opp ? `${e.opp.home ? 'vs' : '@'} ${esc(e.opp.opp)}` : e.flag === 'BYE' ? '<span class="tag bye">BYE</span>' : '')}<div class="pts">${f1(e.v)}<small>proj</small></div></div>`).join('') : '<div class="sub">Nobody on the bench.</div>'}</div>
     </div></div>`;
   if (innerWidth < 1000) $('#ssGrid').style.gridTemplateColumns = 'minmax(0,1fr)';
@@ -560,7 +672,7 @@ let CMP = ST.get('cmp', []);
 playerPicker($('#cmpSearch'), $('#cmpDD'), id => { if (!CMP.includes(id)) CMP = [...CMP, id].slice(-4); ST.set('cmp', CMP); renderCompare(true); }, { exclude: () => CMP });
 async function renderCompare(fresh) {
   const w = +$('#ssWeek').value || defaultSsWeek(), L = selLeague();
-  $('#cmpScoring').textContent = `Week ${w} · ${L ? fmtBits(L)[0] + ' (' + L.name + ')' : 'PPR'}`;
+  $('#cmpScoring').textContent = `Week ${w} · ${L ? (fmtBits(L).find(b => /PPR|Standard/.test(b)) || 'PPR') + ' (' + L.name + ')' : 'PPR'}`;
   const grid = $('#cmpGrid');
   if (!CMP.length) { grid.innerHTML = '<div class="sub" style="grid-column:1/-1">No players picked yet.</div>'; return; }
   if (!G.wk[w]) await loadWeek(w).catch(() => {});
@@ -637,34 +749,91 @@ function ageCurveSvg(pos, age) {
     ${[22, 26, 30, 34, 38].map(a => `<text x="${X(a)}" y="170" fill="#86ab92" font-size="11" text-anchor="middle" font-family="Barlow">${a}</text>`).join('')}
     <line x1="${X(age)}" x2="${X(age)}" y1="20" y2="150" stroke="#facc15" stroke-dasharray="4 4"/><circle cx="${X(age)}" cy="${Y(curveVal(pos, age))}" r="8" fill="#facc15" stroke="#03110a" stroke-width="3"><animate attributeName="r" values="6;10;6" dur="1.6s" repeatCount="indefinite"/></circle></svg>`;
 }
+const PLOG = {};
+async function playerLog(id) {
+  if (PLOG[id]) return PLOG[id];
+  const qs = '?season_type=regular&season=' + G.season + '&grouping=week';
+  const [st, pr] = await Promise.all([sleeper('/stats/nfl/player/' + id + qs).catch(() => ({})), sleeper('/projections/nfl/player/' + id + qs).catch(() => ({}))]);
+  return (PLOG[id] = { st: st || {}, pr: pr || {} });
+}
+function weekRows(p, log, L) {
+  return Array.from({ length: 18 }, (_, i) => i + 1).map(w => {
+    const s = log.st[w] && log.st[w].stats, pj = log.pr[w] && log.pr[w].stats, played = !!(s && (s.gp || s.gms_active));
+    return { w, act: played ? scoreStats(s, L && L.scoring, p.pos) : null, proj: pj && (pj.gp || pj.pts_ppr != null) ? scoreStats(pj, L && L.scoring, p.pos) : null, bye: onBye(p.team, w), opp: weekGames(w)[p.team] || {}, s };
+  });
+}
+function gameLogSvg(p, rows) {
+  const max = Math.max(10, ...rows.map(r => Math.max(r.act || 0, r.proj || 0))) * 1.12, W = 560, H = 190, pad = 24, bw = (W - pad * 2) / 18, base = H - 26, Y = v => base - v / max * (H - 46);
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto" role="img" aria-label="Week by week fantasy points">';
+  for (const v of [10, 20, 30, 40, 50].filter(v => v < max)) s += '<line x1="' + pad + '" x2="' + (W - pad) + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="rgba(225,255,230,.1)"/><text x="' + (pad - 5) + '" y="' + (Y(v) + 3) + '" fill="#86ab92" font-size="9" text-anchor="end" font-family="Barlow">' + v + '</text>';
+  rows.forEach((r, i) => {
+    const x = pad + i * bw + 3, w = bw - 6, opp = r.opp.opp ? ' ' + (r.opp.home ? 'vs ' : '@ ') + r.opp.opp : '';
+    if (r.bye) s += '<text x="' + (x + w / 2) + '" y="' + (base - 6) + '" fill="#bae6fd" font-size="8.5" text-anchor="middle" font-family="Barlow" font-weight="700">BYE</text>';
+    else if (r.act != null) {
+      const col = r.act >= 20 ? '#a3e635' : r.act < 8 ? '#fb7185' : '#4ade80';
+      s += '<rect x="' + x + '" y="' + Y(r.act) + '" width="' + w + '" height="' + Math.max(1.5, base - Y(r.act)) + '" rx="3" fill="' + col + '"><title>Week ' + r.w + opp + ': ' + f1(r.act) + ' pts' + (r.proj != null ? ' (proj ' + f1(r.proj) + ')' : '') + '</title></rect>';
+      if (r.proj != null) s += '<line x1="' + (x - 1) + '" x2="' + (x + w + 1) + '" y1="' + Y(r.proj) + '" y2="' + Y(r.proj) + '" stroke="#fff" stroke-width="2" stroke-dasharray="3 2" opacity=".85"/>';
+      s += '<text x="' + (x + w / 2) + '" y="' + (Y(r.act) - 4) + '" fill="#f0fbef" font-size="8.5" text-anchor="middle" font-family="Barlow" font-weight="700">' + Math.round(r.act) + '</text>';
+    } else if (r.proj != null) s += '<rect x="' + x + '" y="' + Y(r.proj) + '" width="' + w + '" height="' + Math.max(1.5, base - Y(r.proj)) + '" rx="3" fill="rgba(134,239,172,.08)" stroke="#86efac" stroke-dasharray="3 3"><title>Week ' + r.w + opp + ': projected ' + f1(r.proj) + '</title></rect>';
+    s += '<text x="' + (x + w / 2) + '" y="' + (H - 12) + '" fill="' + (r.w === G.week ? '#facc15' : '#86ab92') + '" font-size="10" text-anchor="middle" font-family="Barlow" font-weight="700">' + r.w + '</text>';
+  });
+  return s + '</svg>';
+}
+function seasonLine(p, s) {
+  if (!s || !s.gp) return [];
+  const g = s.gp, per = k => s[k] != null ? f1(s[k] / g) : '–', n = k => Math.round(s[k] || 0);
+  const snap = s.off_snp && s.tm_off_snp ? Math.round(s.off_snp / s.tm_off_snp * 100) + '%' : '–', rank = s.pos_rank_ppr ? p.pos + Math.round(s.pos_rank_ppr) : '–';
+  if (p.pos === 'QB') return [['Pos rank (PPR)', rank], ['Comp / att', n('pass_cmp') + '/' + n('pass_att')], ['Pass yds', n('pass_yd')], ['Pass TD', n('pass_td')], ['INT', n('pass_int')], ['Rush yds', n('rush_yd')], ['Rush TD', n('rush_td')], ['Snap share', snap]];
+  if (p.pos === 'RB') return [['Pos rank (PPR)', rank], ['Carries / game', per('rush_att')], ['Rush yds', n('rush_yd')], ['Yds / carry', s.rush_att ? f1(s.rush_yd / s.rush_att) : '–'], ['Rush TD', n('rush_td')], ['Targets', n('rec_tgt')], ['Rec / yds', n('rec') + ' / ' + n('rec_yd')], ['Rec TD', n('rec_td')], ['Snap share', snap], ['Red-zone looks', n('rush_rz_att') + n('rec_rz_tgt')]];
+  if (p.pos === 'WR' || p.pos === 'TE') return [['Pos rank (PPR)', rank], ['Targets / game', per('rec_tgt')], ['Receptions', n('rec')], ['Rec yds', n('rec_yd')], ['Yds / catch', s.rec ? f1(s.rec_yd / s.rec) : '–'], ['Rec TD', n('rec_td')], ['Red-zone targets', n('rec_rz_tgt')], ['Snap share', snap]];
+  if (p.pos === 'K') return [['FG made', n('fgm') + '/' + n('fga')], ['50+ yds', n('fgm_50p')], ['XP', n('xpm') + '/' + n('xpa')]];
+  if (p.pos === 'DEF') return [['Sacks', n('sack')], ['INT', n('int')], ['Fumble rec', n('fum_rec')], ['Def TD', n('def_td')], ['Pts allowed / game', per('pts_allow')]];
+  return [];
+}
 async function openPlayer(id) {
   const p = pl(id), age = ageOf(p), L = selLeague();
   const leagues = allLeagues().filter(x => x.myIds.includes(id));
   const bi = HQ.boardInfo ? HQ.boardInfo(id) : null;
-  const ht = p.ht ? `${Math.floor(p.ht / 12)}'${p.ht % 12}"` : '';
-  const draw = () => {
+  const ht = p.ht ? Math.floor(p.ht / 12) + "'" + (p.ht % 12) + '"' : '';
+  const draw = (log) => {
     const e = evalPlayer(id, L, G.week), g = ppg(id, L), s = G.stats && G.stats[id];
-    openModal(`<div class="modal-head">${ph(p, 'xl')}<div style="min-width:0"><div class="eyebrow">${esc(p.pos)} · ${esc(p.team || 'FA')}${p.num != null ? ' · #' + esc(p.num) : ''}</div><h2>${esc(p.name)}</h2>
-      <div class="sub">${[age ? `Age ${age.toFixed(1)}` : '', p.exp != null ? (p.exp === 0 ? 'Rookie' : `${p.exp} yr${p.exp === 1 ? '' : 's'} exp`) : '', p.college, ht && p.wt ? `${ht}, ${p.wt} lb` : ''].filter(Boolean).map(esc).join(' · ')} ${injTag(p.inj)}</div></div><button class="xbtn" data-close aria-label="Close">✕</button></div>
-      <div class="modal-body">
-        <div class="mstat">
-          <div><span class="l">Week ${G.week} proj</span><b>${f1(e.raw)}</b></div>
-          <div><span class="l">Opponent</span><b>${e.opp.opp ? `${e.opp.home ? 'vs' : '@'} ${esc(e.opp.opp)}` : onBye(p.team, G.week) ? 'BYE' : '–'}</b></div>
-          <div><span class="l">Per game '26</span><b>${g != null ? f1(g) : '–'}</b></div>
-          <div><span class="l">Games</span><b>${s && s.gp ? s.gp : '–'}</b></div>
-          <div><span class="l">Dynasty ADP SF</span><b>${p.sfAdp ? f1(p.sfAdp) : '–'}</b></div>
-          <div><span class="l">Dynasty ADP 1QB</span><b>${p.oneAdp ? f1(p.oneAdp) : '–'}</b></div>
-          ${bi ? `<div><span class="l">Your board</span><b>#${bi.rank}</b></div><div><span class="l">Trade value</span><b>${bi.value.toLocaleString()}</b></div>` : ''}
-        </div>
-        ${CURVE[p.pos] && age ? `<div class="eyebrow" style="margin:18px 0 4px">Where he sits on the ${esc(p.pos)} age curve</div>${ageCurveSvg(p.pos, age)}` : ''}
-        <div class="row" style="margin-top:14px">${leagues.length ? `<span class="sub">On your roster in:</span> ${leagues.map(x => `<span class="tag good">${esc(x.name)}</span>`).join(' ')}` : '<span class="sub">Not on any of your rosters.</span>'}<span class="sp"></span>
-          <button class="btn small" id="pcCmp">+ Compare</button><button class="btn small" id="pcTrade">+ Trade Lab</button><a class="btn small" href="https://www.google.com/search?q=${encodeURIComponent(p.name + ' fantasy football news')}" target="_blank" rel="noopener">News ↗</a></div>
-      </div>`);
+    const rows = log ? weekRows(p, log, L) : null, played = rows ? rows.filter(r => r.act != null) : [];
+    const acts = played.map(r => r.act), avg = acts.length ? acts.reduce((a, b) => a + b, 0) / acts.length : null;
+    const ros = rows ? rows.filter(r => r.act == null && r.w >= G.week && r.proj != null).reduce((t, r) => t + r.proj, 0) : null;
+    const next = rows ? rows.filter(r => r.w > G.week || (r.w === G.week && r.act == null)).slice(0, 4) : [];
+    const tr = G.trend ? (G.trend.add.find(x => x.player_id === id) || null) : null, trd = G.trend ? (G.trend.drop.find(x => x.player_id === id) || null) : null;
+    const line = seasonLine(p, s);
+    openModal('<div class="modal-head">' + ph(p, 'xl') + '<div style="min-width:0"><div class="eyebrow">' + esc(p.pos) + ' · ' + esc(p.team || 'FA') + (p.num != null ? ' · #' + esc(p.num) : '') + (p.depth ? ' · depth chart #' + esc(p.depth) : '') + '</div><h2>' + esc(p.name) + '</h2>'
+      + '<div class="sub">' + [age ? 'Age ' + age.toFixed(1) : '', p.exp != null ? (p.exp === 0 ? 'Rookie' : p.exp + ' yr' + (p.exp === 1 ? '' : 's') + ' exp') : '', p.college, ht && p.wt ? ht + ', ' + p.wt + ' lb' : ''].filter(Boolean).map(esc).join(' · ') + ' ' + injTag(p.inj) + '</div>'
+      + (p.inj && (p.injPart || p.injNotes) ? '<div class="sub" style="color:#fda4af;margin-top:4px">' + esc([p.injPart, p.injNotes].filter(Boolean).join(' · ')) + '</div>' : '')
+      + '</div><button class="xbtn" data-close aria-label="Close">✕</button></div>'
+      + '<div class="modal-body">'
+      + '<div class="mstat">'
+      + '<div><span class="l">Week ' + G.week + ' proj</span><b>' + f1(e.raw) + '</b></div>'
+      + '<div><span class="l">Opponent</span><b>' + (e.opp.opp ? (e.opp.home ? 'vs ' : '@ ') + esc(e.opp.opp) : onBye(p.team, G.week) ? 'BYE' : '–') + '</b></div>'
+      + '<div><span class="l">Per game \'26</span><b>' + (g != null ? f1(g) : '–') + '</b></div>'
+      + '<div><span class="l">Pos rank</span><b>' + (s && s.pos_rank_ppr ? esc(p.pos) + Math.round(s.pos_rank_ppr) : '–') + '</b></div>'
+      + '<div><span class="l">Rest of season</span><b>' + (ros ? Math.round(ros) : '–') + '</b></div>'
+      + '<div><span class="l">Sleeper trend 24h</span><b>' + (tr ? '<span style="color:#a3e635">▲' + tr.count.toLocaleString() + '</span>' : trd ? '<span style="color:#fda4af">▼' + trd.count.toLocaleString() + '</span>' : '–') + '</b></div>'
+      + '<div><span class="l">Dynasty ADP SF / 1QB</span><b>' + (p.sfAdp ? f1(p.sfAdp) : '–') + ' / ' + (p.oneAdp ? f1(p.oneAdp) : '–') + '</b></div>'
+      + (bi ? '<div><span class="l">Your board</span><b>#' + bi.rank + ' · ' + bi.value.toLocaleString() + '</b></div>' : '')
+      + '</div>'
+      + '<div class="eyebrow" style="margin:18px 0 4px">Game log · ' + esc(L ? (fmtBits(L).find(b => /PPR|Standard/.test(b)) || 'PPR') : 'PPR') + ' scoring</div>'
+      + (rows ? gameLogSvg(p, rows) + '<div class="legend" style="margin-top:4px"><span><i style="background:#a3e635"></i>20+ boom</span><span><i style="background:#4ade80"></i>solid</span><span><i style="background:#fb7185"></i>under 8</span><span><i style="background:transparent;border:1px dashed #86efac"></i>projected</span><span>white dash = what Sleeper projected</span></div>' : '<div class="spinner"></div>')
+      + (acts.length ? '<div class="mstat"><div><span class="l">Average</span><b>' + f1(avg) + '</b></div><div><span class="l">Best week</span><b>' + f1(Math.max.apply(null, acts)) + '</b></div><div><span class="l">Worst week</span><b>' + f1(Math.min.apply(null, acts)) + '</b></div><div><span class="l">Boom weeks (20+)</span><b>' + acts.filter(a => a >= 20).length + ' of ' + acts.length + '</b></div><div><span class="l">Bust weeks (&lt;8)</span><b>' + acts.filter(a => a < 8).length + ' of ' + acts.length + '</b></div></div>' : '')
+      + (line.length ? '<div class="eyebrow" style="margin:18px 0 4px">2026 season · ' + (s.gp || 0) + ' games</div><div class="mstat">' + line.map(([l, v]) => '<div><span class="l">' + esc(l) + '</span><b>' + esc(v) + '</b></div>').join('') + '</div>' : '')
+      + (next.length ? '<div class="eyebrow" style="margin:18px 0 4px">Next up</div><div class="mstat">' + next.map(r => '<div><span class="l">Week ' + r.w + '</span><b>' + (r.bye ? 'BYE' : (r.opp.opp ? (r.opp.home ? 'vs ' : '@ ') + esc(r.opp.opp) : '–') + ' · ' + (r.proj != null ? f1(r.proj) : '–')) + '</b></div>').join('') + '</div>' : '')
+      + (CURVE[p.pos] && age ? '<div class="eyebrow" style="margin:18px 0 4px">Where he sits on the ' + esc(p.pos) + ' age curve</div>' + ageCurveSvg(p.pos, age) : '')
+      + '<div class="row" style="margin-top:14px">' + (leagues.length ? '<span class="sub">On your roster in:</span> ' + leagues.map(x => '<span class="tag good">' + esc(x.name) + '</span>').join(' ') : '<span class="sub">Not on any of your rosters.</span>') + '<span class="sp"></span>'
+      + '<button class="btn small" id="pcCmp">+ Compare</button><button class="btn small" id="pcTrade">+ Trade Lab</button><a class="btn small" href="https://www.google.com/search?q=' + encodeURIComponent(p.name + ' fantasy football news') + '" target="_blank" rel="noopener">News ↗</a></div>'
+      + '</div>');
     $('#pcCmp').onclick = () => { if (!CMP.includes(id)) CMP = [...CMP, id].slice(-4); ST.set('cmp', CMP); closeModal(); location.hash = 'startsit'; };
     $('#pcTrade').onclick = () => { closeModal(); HQ.addToTrade && HQ.addToTrade(id); };
   };
-  draw();
-  if (!G.stats || !G.wk[G.week]) { await Promise.all([loadStats(), loadWeek(G.week).catch(() => {})]); if (modalBg.classList.contains('on')) draw(); }
+  draw(PLOG[id]);
+  const isReal = !String(id).startsWith('espn_');
+  const [log] = await Promise.all([isReal ? playerLog(id) : Promise.resolve({ st: {}, pr: {} }), loadStats(), loadWeek(G.week).catch(() => {}), trending().catch(() => {})]);
+  if (modalBg.classList.contains('on') && $('#modal h2') && $('#modal h2').textContent === p.name) draw(log);
 }
 
 /* ---------- live refresh ----------
@@ -674,14 +843,15 @@ const LIVE = { last: 0, proj: 0, busy: false, timer: null };
 function gamesLiveNow() { const t = today(); return G.sched.some(g => g.week === G.week && (g.status === 'in_game' || g.status === 'in_progress' || (g.date === t && g.status !== 'complete'))); }
 const liveEvery = () => gamesLiveNow() ? 30e3 : 5 * 60e3;
 async function refreshLive(manual) {
-  if (LIVE.busy || !G.user) return; LIVE.busy = true;
-  const before = {}; for (const L of G.sleeperLeagues) { if (L.chopped) { const p = myPoints(L); if (p != null) before[L.id] = [p, Infinity]; continue; } const m = matchupOf(L); if (m) before[L.id] = [m.myPts, m.oppPts]; }
+  if (LIVE.busy || (!G.user && !espnSaved().length)) return; LIVE.busy = true;
+  const before = {}; for (const L of liveLeagues()) { if (L.chopped) { const p = myPoints(L); if (p != null) before[L.id] = [p, Infinity]; continue; } const m = matchupOf(L); if (m) before[L.id] = [m.myPts, m.oppPts]; }
   const wk = G.week;
   try {
     await loadCore(true);
     if (G.week !== wk) G.wk = {};
     const projStale = manual || Date.now() - LIVE.proj > 10 * 60e3; if (projStale) LIVE.proj = Date.now();
-    await loadUser(G.user.username, true, projStale);
+    if (G.user) await loadUser(G.user.username, true, projStale); else if (projStale) await loadWeek(G.week, true).catch(() => {});
+    await loadEspn(); saveSummaries();
     LIVE.last = Date.now();
     updateBoard();
     const typing = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
@@ -691,7 +861,7 @@ async function refreshLive(manual) {
   LIVE.busy = false;
 }
 function flashChanges(before) {
-  for (const L of G.sleeperLeagues) {
+  for (const L of liveLeagues()) {
     const b = before[L.id]; if (!b) continue;
     const m = L.chopped ? { myPts: myPoints(L) || 0, oppPts: 0 } : matchupOf(L); if (!m) continue;
     const card = document.querySelector(`.mcard[data-lg="${CSS.escape(L.id)}"]`); if (!card) continue;
@@ -702,7 +872,7 @@ function flashChanges(before) {
   }
 }
 function scheduleLive() { clearTimeout(LIVE.timer); LIVE.timer = setTimeout(async () => { if (document.visibilityState === 'visible') await refreshLive(); scheduleLive(); }, liveEvery()); }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && G.user && Date.now() - LIVE.last > 30e3) refreshLive().then(scheduleLive); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && (G.user || espnSaved().length) && Date.now() - LIVE.last > 30e3) refreshLive().then(scheduleLive); });
 setInterval(() => { const el = document.getElementById('syncAgo'); if (!el || !LIVE.last) return; const s = Math.round((Date.now() - LIVE.last) / 1000); el.textContent = `· updated ${s < 60 ? s + 's' : Math.round(s / 60) + ' min'} ago · auto every ${gamesLiveNow() ? '30s' : '5 min'}`; }, 1000);
 
 /* ---------- expose to dynasty.js ---------- */
@@ -716,8 +886,10 @@ Object.assign(renderers, { gameday: renderGameday, leagues: renderLeagues, start
   $('#gamedayBody').innerHTML = '<div class="spinner"></div>';
   try { await loadCore(); } catch (e) { toast('Sleeper is unreachable, so live data is off'); }
   const name = ST.get('username', '');
-  if (name) { try { await loadUser(name); LIVE.last = LIVE.proj = Date.now(); scheduleLive(); } catch (e) { toast(e.message || 'Could not load your leagues'); } }
+  if (name) { try { await loadUser(name); } catch (e) { toast(e.message || 'Could not load your leagues'); } }
   else await loadWeek(G.week).catch(() => {});
+  if (espnSaved().length) { await loadEspn(); saveSummaries(); }
+  if (G.user || espnSaved().length) { LIVE.last = LIVE.proj = Date.now(); scheduleLive(); }
   updateBoard();
   show(location.hash.slice(1) || 'gameday');
 })();
