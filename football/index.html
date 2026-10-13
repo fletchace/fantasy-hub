@@ -30,6 +30,10 @@
 .vs .side.me .sc{color:var(--gold);text-shadow:0 0 16px rgba(250,204,21,.35)}
 .vs .pj{font-size:12px;color:var(--muted)}
 .vs .mid{font:900 18px/1 var(--font-display);color:var(--muted)}
+@keyframes bump{0%{transform:scale(1)}30%{transform:scale(1.2);text-shadow:0 0 26px #86efac;color:#bbf7d0}100%{transform:scale(1)}}
+.vs .sc.bump{display:inline-block;animation:bump .9s ease}
+.live-dot{animation:livepulse 2s ease-in-out infinite}
+@keyframes livepulse{50%{box-shadow:0 0 0 6px rgba(163,230,53,.15)}}
 .wp{position:relative;height:12px;border-radius:999px;background:rgba(244,63,94,.35);overflow:hidden}
 .wp i{position:absolute;inset:0 auto 0 0;width:50%;background:linear-gradient(90deg,var(--lime),var(--neon));border-radius:999px;transition:width 1.2s cubic-bezier(.2,.9,.3,1)}
 .wp b{position:absolute;top:50%;width:18px;height:11px;margin-left:-9px;transform:translateY(-50%) rotate(-12deg);border-radius:50%;background:#8a4520;box-shadow:0 0 0 1px #fff3;transition:left 1.2s cubic-bezier(.2,.9,.3,1)}

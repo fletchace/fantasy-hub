@@ -17,10 +17,10 @@
   /* ---------- Sleeper API (public, read-only, CORS-enabled) ---------- */
   const memo = new Map();
   const cache = store('fhub_cache_');
-  async function sleeper(path, { ttl = 0, base = 'https://api.sleeper.app' } = {}) {
+  async function sleeper(path, { ttl = 0, base = 'https://api.sleeper.app', fresh = false } = {}) {
     const url = base + path;
-    if (memo.has(url)) return memo.get(url);
-    if (ttl) { const c = cache.get(path); if (c && Date.now() - c.t < ttl) { const p = Promise.resolve(c.v); memo.set(url, p); return p; } }
+    if (!fresh && memo.has(url)) return memo.get(url);
+    if (ttl && !fresh) { const c = cache.get(path); if (c && Date.now() - c.t < ttl) { const p = Promise.resolve(c.v); memo.set(url, p); return p; } }
     const p = fetch(url, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error('Sleeper ' + r.status); return r.json(); })
       .then(v => { if (ttl) { try { cache.set(path, { t: Date.now(), v }); } catch (e) {} } return v; });
     memo.set(url, p);

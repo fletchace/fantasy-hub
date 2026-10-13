@@ -13,7 +13,7 @@ tick(); setInterval(tick, 1000);
 const NBA = {}; for (const r of (window.NBA_SNAP || [])) NBA[r[0]] = { id: r[0], name: r[1], pos: r[2], team: r[3], rank: r[4] };
 const pn = id => NBA[id] || { id, name: 'Player ' + id, pos: '', team: '' };
 let loaded = false;
-async function loadLeagues() {
+async function loadLeagues(silent = false) {
   const box = q('#ssLeagues'), ST = store('ffhq_');
   const name = ST.get('username', '');
   if (!name) {
@@ -22,16 +22,17 @@ async function loadLeagues() {
     q('#ssCn').onsubmit = e => { e.preventDefault(); const v = q('#ssName').value.trim(); if (v) { ST.set('username', v); loadLeagues(); } };
     return;
   }
-  box.innerHTML = '<div class="empty-note">Loading your leagues…</div>';
+  if (!silent) box.innerHTML = '<div class="empty-note">Loading your leagues…</div>';
+  const fresh = silent;
   try {
-    const st = await sleeper('/v1/state/nba', { ttl: 30 * 60e3 });
+    const st = await sleeper('/v1/state/nba', { ttl: 30 * 60e3, fresh });
     const u = await sleeper(`/v1/user/${encodeURIComponent(name)}`);
     if (!u || !u.user_id) throw new Error('user');
-    const ls = await sleeper(`/v1/user/${u.user_id}/leagues/nba/${st.season}`);
+    const ls = await sleeper(`/v1/user/${u.user_id}/leagues/nba/${st.season}`, { fresh });
     if (!ls.length) { box.innerHTML = `<div class="card ss-empty"><h3>No ${st.season} NBA leagues on ${esc(name)} yet</h3><p class="sub">Once the dynasty league is created on Sleeper it shows up here automatically.</p></div>`; return; }
     const regular = st.season_type === 'regular';
     const cards = await Promise.all(ls.map(async lg => {
-      const [rosters, users, mu] = await Promise.all([sleeper(`/v1/league/${lg.league_id}/rosters`), sleeper(`/v1/league/${lg.league_id}/users`), regular ? sleeper(`/v1/league/${lg.league_id}/matchups/${st.week}`).catch(() => []) : Promise.resolve([])]);
+      const [rosters, users, mu] = await Promise.all([sleeper(`/v1/league/${lg.league_id}/rosters`, { fresh }), sleeper(`/v1/league/${lg.league_id}/users`), regular ? sleeper(`/v1/league/${lg.league_id}/matchups/${st.week}`, { fresh }).catch(() => []) : Promise.resolve([])]);
       const um = {}; for (const x of users) um[x.user_id] = x;
       const tn = r => { const x = um[r && r.owner_id]; return (x && x.metadata && x.metadata.team_name) || (x && x.display_name) || 'Team ' + (r ? r.roster_id : '?'); };
       const mine = rosters.find(r => r.owner_id === u.user_id || (r.co_owners || []).includes(u.user_id));
@@ -51,7 +52,9 @@ async function loadLeagues() {
     qa('[data-ss-switch]').forEach(b => b.onclick = () => { store('ffhq_').del('username'); loadLeagues(); });
   } catch (e) { box.innerHTML = `<div class="card ss-empty"><h3>Couldn't load leagues</h3><p class="sub">Sleeper didn't answer, or there's no user named "${esc(name)}".</p><button class="btn small" data-ss-switch>Try another username</button></div>`; qa('[data-ss-switch]').forEach(b => b.onclick = () => { store('ffhq_').del('username'); loadLeagues(); }); }
 }
-q('#ssRefresh').onclick = loadLeagues;
+q('#ssRefresh').onclick = () => loadLeagues(true);
+// Live scores: refresh every minute while the Season tab is open and the page is visible.
+setInterval(() => { if (loaded && document.visibilityState === 'visible' && q('#v-season').classList.contains('on') && store('ffhq_').get('username', '')) loadLeagues(true); }, 60e3);
 
 /* ---------- calendar timeline ---------- */
 function drawTimeline() {

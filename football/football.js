@@ -31,9 +31,10 @@ const PRESETS = {
 };
 PRESETS.half = { ...PRESETS.ppr, rec: .5 }; PRESETS.std = { ...PRESETS.ppr, rec: 0 };
 
-async function loadCore() {
-  const st = await sleeper('/v1/state/nfl', { ttl: 15 * 60e3 }); G.st = st; G.season = st.season;
-  try { G.sched = await sleeper(`/schedule/nfl/regular/${st.season}`, { ttl: 30 * 60e3 }); } catch (e) { G.sched = []; }
+async function loadCore(fresh = false) {
+  const st = await sleeper('/v1/state/nfl', { ttl: 15 * 60e3, fresh }); G.st = st; G.season = st.season;
+  try { G.sched = await sleeper(`/schedule/nfl/regular/${st.season}`, { ttl: 30 * 60e3, fresh }); } catch (e) { if (!fresh) G.sched = []; }
+  G.gamesMemo = {};
   const open = G.sched.filter(g => g.status !== 'complete').map(g => g.week);
   G.week = open.length ? Math.min(...open) : st.week;
 }
@@ -45,10 +46,10 @@ function weekGames(w) {
 const today = () => new Date().toISOString().slice(0, 10);
 const onBye = (team, w) => !!(G.sched.length && team && team !== 'FA' && !weekGames(w)[team]);
 function isLocked(team, w) { const g = weekGames(w)[team]; if (!g) return false; return g.status === 'complete' || g.status === 'in_game' || g.status === 'in_progress' || g.date < today(); }
-async function loadWeek(w) {
-  if (G.wk[w]) return G.wk[w];
+async function loadWeek(w, fresh = false) {
+  if (G.wk[w] && !fresh) return G.wk[w];
   const q = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].map(p => 'position%5B%5D=' + p).join('&');
-  const arr = await sleeper(`/projections/nfl/${G.season}/${w}?season_type=regular&${q}`);
+  const arr = await sleeper(`/projections/nfl/${G.season}/${w}?season_type=regular&${q}`, { fresh });
   const m = {};
   for (const x of arr) {
     m[x.player_id] = { s: x.stats || {}, opp: x.opponent };
@@ -132,14 +133,14 @@ function fmtBits(L) {
   if (L.kind === 'manual') bits.push(L.platform || 'Manual');
   return bits;
 }
-async function loadUser(name) {
+async function loadUser(name, fresh = false, freshProj = false) {
   const u = await sleeper(`/v1/user/${encodeURIComponent(name.trim())}`);
   if (!u || !u.user_id) throw new Error(`Couldn't find a Sleeper user named "${name}".`);
   G.user = u; ST.set('username', u.username || name.trim());
-  const ls = await sleeper(`/v1/user/${u.user_id}/leagues/nfl/${G.season}`);
-  await loadWeek(G.week).catch(() => {});
+  const ls = await sleeper(`/v1/user/${u.user_id}/leagues/nfl/${G.season}`, { fresh });
+  await loadWeek(G.week, freshProj).catch(() => {});
   G.sleeperLeagues = await Promise.all((ls || []).map(async lg => {
-    const [rosters, users, mu] = await Promise.all([sleeper(`/v1/league/${lg.league_id}/rosters`), sleeper(`/v1/league/${lg.league_id}/users`), sleeper(`/v1/league/${lg.league_id}/matchups/${G.week}`).catch(() => [])]);
+    const [rosters, users, mu] = await Promise.all([sleeper(`/v1/league/${lg.league_id}/rosters`, { fresh }), sleeper(`/v1/league/${lg.league_id}/users`), sleeper(`/v1/league/${lg.league_id}/matchups/${G.week}`, { fresh }).catch(() => [])]);
     return buildSleeperLeague(lg, rosters, users, mu);
   }));
   saveSummaries();
@@ -266,8 +267,8 @@ function needLeagues(el) {
 function renderConnect() {
   const box = $('#connectBox'), name = ST.get('username', '');
   if (G.user) {
-    box.innerHTML = `<div class="card" style="margin-bottom:16px;padding:12px 16px"><div class="row"><span class="tag good">● Connected</span><b>${esc(G.user.display_name || G.user.username)}</b><span class="sub">${G.sleeperLeagues.length} Sleeper league${G.sleeperLeagues.length === 1 ? '' : 's'} · ${manualList().length} manual · Week ${G.week}</span><span class="sp"></span><button class="btn small" id="gdRefresh">↻ Refresh</button><button class="btn small" id="gdManual">+ Add ESPN/Yahoo league</button><button class="btn small ghost" id="gdSwitch">Switch user</button></div></div>`;
-    $('#gdRefresh').onclick = async () => { $('#gdRefresh').disabled = true; G.wk = {}; G.gamesMemo = {}; try { await loadCore(); await loadUser(G.user.username || name); toast('Leagues refreshed'); } catch (e) { toast(e.message); } renderGameday(); updateBoard(); };
+    box.innerHTML = `<div class="card" style="margin-bottom:16px;padding:12px 16px"><div class="row"><span class="tag good live-dot">● LIVE</span><b>${esc(G.user.display_name || G.user.username)}</b><span class="sub">${G.sleeperLeagues.length} Sleeper league${G.sleeperLeagues.length === 1 ? '' : 's'} · ${manualList().length} manual · Week ${G.week}</span><span class="sub" id="syncAgo" style="font-size:12px"></span><span class="sp"></span><button class="btn small" id="gdRefresh">↻ Refresh</button><button class="btn small" id="gdManual">+ Add ESPN/Yahoo league</button><button class="btn small ghost" id="gdSwitch">Switch user</button></div></div>`;
+    $('#gdRefresh').onclick = async () => { $('#gdRefresh').disabled = true; await refreshLive(true); toast('Scores refreshed'); const b = $('#gdRefresh'); if (b) b.disabled = false; };
     $('#gdSwitch').onclick = () => { G.user = null; G.sleeperLeagues = []; ST.del('username'); ST.del('summaries'); renderGameday(); updateBoard(); };
     $('#gdManual').onclick = () => manualForm();
     return;
@@ -282,13 +283,13 @@ function renderConnect() {
   $('#cnForm').onsubmit = async e => {
     e.preventDefault(); const v = $('#cnName').value.trim(); if (!v) return;
     $('#cnMsg').innerHTML = '<div class="spinner" style="margin:6px 0"></div>';
-    try { await loadUser(v); toast(`Loaded ${G.sleeperLeagues.length} league${G.sleeperLeagues.length === 1 ? '' : 's'}`); const r = $('#cnForm').getBoundingClientRect(); confetti(r.left + r.width / 2, r.top, 60); renderGameday(); updateBoard(); }
+    try { await loadUser(v); LIVE.last = LIVE.proj = Date.now(); scheduleLive(); toast(`Loaded ${G.sleeperLeagues.length} league${G.sleeperLeagues.length === 1 ? '' : 's'}`); const r = $('#cnForm').getBoundingClientRect(); confetti(r.left + r.width / 2, r.top, 60); renderGameday(); updateBoard(); }
     catch (err) { $('#cnMsg').textContent = err.message || 'Could not reach Sleeper.'; }
   };
   $('#cnManual').onclick = () => manualForm();
 }
 function wpBar(wp) { const pc = Math.round(clamp(wp, .02, .98) * 100); return `<div class="wp" data-w="${pc}"><i style="width:50%"></i><b style="left:50%"></b></div>`; }
-function animateBars(root) { requestAnimationFrame(() => setTimeout(() => $$('.wp', root).forEach(el => { const w = el.dataset.w + '%'; el.querySelector('i').style.width = w; el.querySelector('b').style.left = w; }), 60)); }
+function animateBars(root) { if (G.silent) { $$('.wp', root).forEach(el => { const i = el.querySelector('i'), b = el.querySelector('b'); i.style.transition = b.style.transition = 'none'; i.style.width = b.style.left = el.dataset.w + '%'; }); return; } requestAnimationFrame(() => setTimeout(() => $$('.wp', root).forEach(el => { const w = el.dataset.w + '%'; el.querySelector('i').style.width = w; el.querySelector('b').style.left = w; }), 60)); }
 function renderGameday() {
   renderConnect();
   const body = $('#gamedayBody'), ls = allLeagues();
@@ -320,7 +321,8 @@ function renderGameday() {
     </div>`;
   $$('.mcard', body).forEach(c => { tilt(c, 5); c.onclick = e => { if (e.target.closest('a')) return; setSel(c.dataset.lg); location.hash = 'leagues'; }; });
   $$('[data-fix]', body).forEach(a => a.onclick = () => setSel(a.dataset.fix));
-  reveal(body); animateBars(body); loadTrendingInto($('#gdTrend'));
+  if (G.silent) $$('.reveal', body).forEach(e => { e.style.transition = 'none'; e.classList.add('in'); }); else reveal(body);
+  animateBars(body); loadTrendingInto($('#gdTrend'));
 }
 async function trending() {
   if (G.trend) return G.trend;
@@ -475,8 +477,9 @@ async function renderStartSit() {
       <div class="card hash"><div class="head"><h3>Bench</h3></div>${o.bench.length ? o.bench.map(e => `<div class="slot"><span>${posTag(e.p.pos)}</span>${pcell(e.p, e.opp.opp ? `${e.opp.home ? 'vs' : '@'} ${esc(e.opp.opp)}` : e.flag === 'BYE' ? '<span class="tag bye">BYE</span>' : '')}<div class="pts">${f1(e.v)}<small>proj</small></div></div>`).join('') : '<div class="sub">Nobody on the bench.</div>'}</div>
     </div></div>`;
   if (innerWidth < 1000) $('#ssGrid').style.gridTemplateColumns = 'minmax(0,1fr)';
-  countUp($('#ssBig'), hasCur ? Math.max(0, gain) : o.best, { dec: 1, prefix: hasCur ? '+' : '' });
-  if (hasCur && changes && gain > 3) { const r = $('#ssBig').getBoundingClientRect(); setTimeout(() => popText(r.left + r.width / 2, r.top, 'UPGRADE!', '#a3e635', 40), 600); }
+  if (G.silent) $('#ssBig').textContent = (hasCur ? '+' : '') + f1(hasCur ? Math.max(0, gain) : o.best);
+  else countUp($('#ssBig'), hasCur ? Math.max(0, gain) : o.best, { dec: 1, prefix: hasCur ? '+' : '' });
+  if (hasCur && changes && gain > 3 && !G.silent) { const r = $('#ssBig').getBoundingClientRect(); setTimeout(() => popText(r.left + r.width / 2, r.top, 'UPGRADE!', '#a3e635', 40), 600); }
   renderCompare();
 }
 let CMP = ST.get('cmp', []);
@@ -578,6 +581,43 @@ async function openPlayer(id) {
   if (!G.stats || !G.wk[G.week]) { await Promise.all([loadStats(), loadWeek(G.week).catch(() => {})]); if (modalBg.classList.contains('on')) draw(); }
 }
 
+/* ---------- live refresh ----------
+   Re-pulls the week's state, matchups and rosters from Sleeper on a timer (every 30s while games are on,
+   every 5 min otherwise, projections every 10 min) and redraws the open tab in place, flashing scores that moved. */
+const LIVE = { last: 0, proj: 0, busy: false, timer: null };
+function gamesLiveNow() { const t = today(); return G.sched.some(g => g.week === G.week && (g.status === 'in_game' || g.status === 'in_progress' || (g.date === t && g.status !== 'complete'))); }
+const liveEvery = () => gamesLiveNow() ? 30e3 : 5 * 60e3;
+async function refreshLive(manual) {
+  if (LIVE.busy || !G.user) return; LIVE.busy = true;
+  const before = {}; for (const L of G.sleeperLeagues) { const m = matchupOf(L); if (m) before[L.id] = [m.myPts, m.oppPts]; }
+  const wk = G.week;
+  try {
+    await loadCore(true);
+    if (G.week !== wk) G.wk = {};
+    const projStale = manual || Date.now() - LIVE.proj > 10 * 60e3; if (projStale) LIVE.proj = Date.now();
+    await loadUser(G.user.username, true, projStale);
+    LIVE.last = Date.now();
+    updateBoard();
+    const typing = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+    if (['gameday', 'leagues', 'startsit'].includes(G.view) && !modalBg.classList.contains('on') && !typing) { G.silent = true; try { await renderers[G.view](); } finally { G.silent = false; } }
+    flashChanges(before);
+  } catch (e) { if (manual) toast('Could not reach Sleeper'); }
+  LIVE.busy = false;
+}
+function flashChanges(before) {
+  for (const L of G.sleeperLeagues) {
+    const m = matchupOf(L), b = before[L.id]; if (!m || !b) continue;
+    const card = document.querySelector(`.mcard[data-lg="${CSS.escape(L.id)}"]`); if (!card) continue;
+    const [me, op] = card.querySelectorAll('.sc');
+    const bump = el => { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); };
+    if (me && m.myPts > b[0] + .05) { bump(me); const r = me.getBoundingClientRect(); popText(r.left + r.width / 2, r.top, '+' + f1(m.myPts - b[0]), '#86efac', 30); }
+    if (op && m.oppPts > b[1] + .05) bump(op);
+  }
+}
+function scheduleLive() { clearTimeout(LIVE.timer); LIVE.timer = setTimeout(async () => { if (document.visibilityState === 'visible') await refreshLive(); scheduleLive(); }, liveEvery()); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && G.user && Date.now() - LIVE.last > 30e3) refreshLive().then(scheduleLive); });
+setInterval(() => { const el = document.getElementById('syncAgo'); if (!el || !LIVE.last) return; const s = Math.round((Date.now() - LIVE.last) / 1000); el.textContent = `· updated ${s < 60 ? s + 's' : Math.round(s / 60) + ' min'} ago · auto every ${gamesLiveNow() ? '30s' : '5 min'}`; }, 1000);
+
 /* ---------- expose to dynasty.js ---------- */
 const HQ = window.HQ = { P, G, ST, pl, ph, posTag, injTag, pcell, ageOf, POS_COL, CURVE, curveVal, f1, openPlayer, openModal, closeModal, playerPicker, searchPlayers, renderers, show,
   ELIG: { QB: ['QB'], RB: ['RB'], WR: ['WR'], TE: ['TE'], K: ['K'], DEF: ['DEF'], FLEX: ['RB', 'WR', 'TE'], WRRB_FLEX: ['WR', 'RB'], REC_FLEX: ['WR', 'TE'], SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'] } };
@@ -589,7 +629,7 @@ Object.assign(renderers, { gameday: renderGameday, leagues: renderLeagues, start
   $('#gamedayBody').innerHTML = '<div class="spinner"></div>';
   try { await loadCore(); } catch (e) { toast('Sleeper is unreachable, so live data is off'); }
   const name = ST.get('username', '');
-  if (name) { try { await loadUser(name); } catch (e) { toast(e.message || 'Could not load your leagues'); } }
+  if (name) { try { await loadUser(name); LIVE.last = LIVE.proj = Date.now(); scheduleLive(); } catch (e) { toast(e.message || 'Could not load your leagues'); } }
   else await loadWeek(G.week).catch(() => {});
   updateBoard();
   show(location.hash.slice(1) || 'gameday');
