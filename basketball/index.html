@@ -561,7 +561,7 @@ html body{background:
 html header.top{background:linear-gradient(180deg,#1c0b02,#2a1206)}
 html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gradient(90deg,rgba(0,0,0,.12) 0 1px,transparent 1px 46px),linear-gradient(135deg,#4a2109 0%,#8a4316 100%)}
 </style><a class="skip" href="#main">Skip to content</a>
-<link rel="stylesheet" href="season.css">
+<link rel="stylesheet" href="nba.css">
 <nav class="fh-nav" aria-label="Main"><div class="in">
   <a class="fh-logo" href="../index.html" aria-label="Fantasy Hub home"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" fill="#e8590c"/><g fill="none" stroke="#3b1404" stroke-width="3.2"><path d="M5 32h54M32 5v54M13 12c9 8 9 32 0 40M51 12c-9 8-9 32 0 40"/></g></svg><span>Fantasy Hub</span></a>
   <div class="fh-links"><a href="../index.html">Hub</a><a href="../football/index.html">Football HQ</a><a href="index.html" aria-current="page">Basketball HQ</a></div>
@@ -576,11 +576,11 @@ html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gr
       <button role="tab" id="tab-board" aria-controls="v-board" aria-selected="true" tabindex="0" data-v="board" class="on">Big Board</button>
       <button role="tab" id="tab-draft" aria-controls="v-draft" aria-selected="false" tabindex="-1" data-v="draft">Draft Room</button>
       <button role="tab" id="tab-plan" aria-controls="v-plan" aria-selected="false" tabindex="-1" data-v="plan">Pick Plan</button>
+      <button role="tab" id="tab-gameday" aria-controls="v-gameday" aria-selected="false" tabindex="-1" data-v="gameday">Gameday</button>
+      <button role="tab" id="tab-nbass" aria-controls="v-nbass" aria-selected="false" tabindex="-1" data-v="nbass">Start / Sit</button>
+      <button role="tab" id="tab-nbawv" aria-controls="v-nbawv" aria-selected="false" tabindex="-1" data-v="nbawv">Waivers</button>
       <button role="tab" id="tab-trade" aria-controls="v-trade" aria-selected="false" tabindex="-1" data-v="trade">Trade</button>
       <button role="tab" id="tab-league" aria-controls="v-league" aria-selected="false" tabindex="-1" data-v="league">League</button>
-      <button role="tab" id="tab-season" aria-controls="v-season" aria-selected="false" tabindex="-1" data-v="season">Season</button>
-      <button role="tab" id="tab-lab" aria-controls="v-lab" aria-selected="false" tabindex="-1" data-v="lab">Visual Lab</button>
-      <button role="tab" id="tab-compare" aria-controls="v-compare" aria-selected="false" tabindex="-1" data-v="compare">Compare</button>
       <button role="tab" id="tab-lockin" aria-controls="v-lockin" aria-selected="false" tabindex="-1" data-v="lockin">Lock-In Lab</button>
       <button role="tab" id="tab-settings" aria-controls="v-settings" aria-selected="false" tabindex="-1" data-v="settings">Scoring &amp; Model</button>
     </nav>
@@ -930,14 +930,15 @@ html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gr
     </div>
   </div>
 </section>
-<!-- ================= SEASON (merged from the old Basketball HQ landing) ================= -->
-<section class="view" id="v-season" role="tabpanel" aria-labelledby="tab-season">
+<!-- ================= GAMEDAY (in-season, live from Sleeper) ================= -->
+<section class="view" id="v-gameday" role="tabpanel" aria-labelledby="tab-gameday">
   <div class="card ss-hero">
     <div class="ss-hero-in">
       <div>
-        <div class="eyebrow ss-or">2026–27 season</div>
-        <h2 class="ss-big">Season HQ</h2>
-        <p class="sub" style="max-width:60ch">Your Sleeper NBA leagues, the league calendar, a Lock-In helper, the rules at a glance and the 2027 rookie lottery, all in one tab.</p>
+        <div class="eyebrow ss-or">2026–27 season · live from Sleeper</div>
+        <h2 class="ss-big">Gameday</h2>
+        <p class="sub" style="max-width:62ch">Your NBA matchups with live scores and win odds, lineup alerts, standings and your roster. Scores refresh on their own while this tab is open.</p>
+        <div class="row" style="margin-top:6px"><span class="pill nb-live" id="nbLive">● Not connected</span><button class="btn small" id="nbRefresh">↻ Refresh</button></div>
       </div>
       <div class="ss-shot" aria-hidden="true">
         <svg class="ss-hoop" viewBox="0 0 150 160"><rect x="20" y="0" width="120" height="78" rx="6" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.7)" stroke-width="3"/><rect x="58" y="34" width="44" height="32" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="3"/><rect x="132" y="70" width="10" height="90" fill="rgba(255,255,255,.15)"/>
@@ -954,76 +955,43 @@ html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gr
       <div><span>Championship ends · Apr 4</span><b id="ssCh">--</b></div>
     </div>
   </div>
-
-  <div class="seclabel"><h3>Your Sleeper NBA leagues</h3><button class="btn small" id="ssRefresh">↻ Refresh</button></div>
-  <div id="ssLeagues"></div>
-
-  <div class="seclabel"><h3>2026–27 league calendar</h3><span class="sub" id="ssTlPct"></span></div>
-  <div class="card"><div class="ss-timeline" id="ssTimeline"></div></div>
-
+  <div id="nbConnect"></div>
+  <div id="nbCards" class="nb-cards"></div>
   <div class="grid g2" style="margin-top:var(--sp-4)">
+    <div class="card"><div class="row"><h3 style="margin:0">Lineup alerts</h3><span class="spacer"></span><span class="pill" id="nbAlertCount">–</span></div><div id="nbAlerts" style="margin-top:10px"></div></div>
     <div class="card">
       <h3>Lock or roll?</h3>
-      <div class="sub">A starter just finished a game. Lock that score, or wait for his next one? This compares the score to what waiting is worth with the games he has left this week.</div>
+      <div class="sub">A starter just finished a game. Lock that score, or wait for his next one? This compares it to what waiting is worth with the games he has left this week.</div>
       <div class="ss-inputs">
         <label>Score just posted<input type="number" id="ssScore" value="42" min="0" step="0.5"></label>
         <label>His average<input type="number" id="ssAvg" value="38" min="1" step="0.5"></label>
         <label>Games left this week<select id="ssLeft"><option value="0">0 (last game)</option><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option></select></label>
       </div>
       <div class="ss-meter" aria-hidden="true"><i id="ssLine"></i><b id="ssMark"></b></div>
-      <div class="row"><span class="sub" style="font-size:12px">Low</span><span class="spacer"></span><span class="sub" style="font-size:12px">Gold line = lock if above</span><span class="spacer"></span><span class="sub" style="font-size:12px">High</span></div>
       <div class="ss-verdict" id="ssVerdict">–</div>
       <div class="sub" id="ssWhy" style="margin-top:6px"></div>
     </div>
-    <div class="card">
-      <h3>How Lock-In works</h3>
-      <div class="steps" style="margin-top:10px">
-        <div class="step"><div>Matchups run Monday through Sunday.</div></div>
-        <div class="step"><div>A player has to be in your lineup before tip-off for that game to count.</div></div>
-        <div class="step"><div>After his game ends, you can lock it any time before his next game starts. Locked games can't be undone.</div></div>
-        <div class="step"><div>Once he's locked, his later games that week don't count.</div></div>
-        <div class="step"><div>Never lock him and his team's last game of the week counts automatically, even if he sits.</div></div>
-        <div class="step"><div>Points only count for games played while he was on your roster.</div></div>
-      </div>
-    </div>
   </div>
+  <div class="seclabel"><h3>League detail</h3></div>
+  <div class="chips nb-chips" id="nbChipsG" role="group" aria-label="League"></div>
+  <div id="nbDetail" style="margin-top:var(--sp-3)"></div>
+  <div class="seclabel"><h3>2026–27 league calendar</h3><span class="sub" id="ssTlPct"></span></div>
+  <div class="card"><div class="ss-timeline" id="ssTimeline"></div></div>
+</section>
 
-  <div class="grid g2" style="margin-top:var(--sp-4)">
-    <div class="card">
-      <div class="row"><h3>Scoring &amp; roster</h3><span class="pill">Sleeper default</span><span class="spacer"></span><a class="btn small" href="https://claude.ai/artifact/XrwgjCEecq5ewboJmcH8Wd" target="_blank" rel="noopener">Full rulebook ↗</a></div>
-      <div class="ss-sg"><div><b>0.5</b><span>Point</span></div><div><b>1</b><span>Rebound</span></div><div><b>1</b><span>Assist</span></div><div><b>2</b><span>Steal</span></div><div><b>2</b><span>Block</span></div><div><b class="neg">−1</b><span>Turnover</span></div><div><b>0.5</b><span>3-pointer</span></div><div><b>1</b><span>Double-double</span></div><div><b>2</b><span>Triple-double</span></div><div><b>2</b><span>40+ pts</span></div><div><b>2</b><span>50+ pts</span></div><div><b class="neg">−2</b><span>Tech / flagrant</span></div></div>
-      <div class="eyebrow" style="margin:16px 0 8px">Starting lineup (10)</div>
-      <div class="row"><span class="pos">PG</span><span class="pos">SG</span><span class="pos">G</span><span class="pos">SF</span><span class="pos">PF</span><span class="pos">F</span><span class="pos">C</span><span class="pos">C</span><span class="pos">UTIL</span><span class="pos">UTIL</span></div>
-      <div class="ss-stats"><div><span>Bench</span><b>10</b></div><div><span>IR (OUT/susp.)</span><b>3</b></div><div><span>Taxi (≤2 yrs)</span><b>3</b></div><div><span>Max roster</span><b>26</b></div></div>
-    </div>
-    <div class="card">
-      <h3>Moves &amp; money</h3>
-      <div class="ss-stats">
-        <div><span>FAAB budget</span><b>$100</b></div><div><span>Min bid</span><b>$0</b></div><div><span>Waiver period</span><b>1 day</b></div><div><span>Claims run</span><b>Nightly</b></div>
-        <div><span>Trade review</span><b>24 hrs</b></div><div><span>Future picks</span><b>2 yrs</b></div><div><span>Playoff teams</span><b>6</b></div><div><span>Byes</span><b>Top 2</b></div>
-      </div>
-      <ul class="hl" style="margin-top:14px">
-        <li>Waiver ties go to the worse record. FAAB can be traded.</li>
-        <li class="info">Taxi moves lock at opening night. Free agents go to the bench first, then taxi.</li>
-        <li class="warn">Healthy IR players must come back within 48 hours.</li>
-        <li class="good">Rule changes are offseason only and need 7 of 10 votes.</li>
-      </ul>
-    </div>
-  </div>
+<!-- ================= START / SIT ================= -->
+<section class="view" id="v-nbass" role="tabpanel" aria-labelledby="tab-nbass">
+  <div class="viewhead"><div><h2>Start / Sit</h2><div class="sub">The best Lock-In lineup for the week. With Lock-In you keep one game per starter, so a player's week is worth his best <em>lockable</em> game: more games means more chances at a big night. Values use your league's scoring, the player's points per game and his games left this week.</div></div>
+    <span class="spacer"></span><label class="nb-wk">Week <select id="nbWeek"></select></label></div>
+  <div class="chips nb-chips" id="nbChipsS" role="group" aria-label="League"></div>
+  <div id="nbSS" style="margin-top:var(--sp-3)"></div>
+</section>
 
-  <div class="seclabel" id="lottery"><h3>2027 rookie lottery</h3><span class="sub">picks 1–4 · the 4 non-playoff teams</span></div>
-  <div class="card">
-    <div class="ss-drumwrap">
-      <canvas id="ssDrum" role="img" aria-label="Animated lottery drum with 40 balls colored by team"></canvas>
-      <div>
-        <div class="sub" style="margin-bottom:10px">Each team gets balls in proportion to its odds for #1. Once a team is drawn, its balls come out and the next pick is drawn from what's left, just like the rulebook says. Rename the teams if you like.</div>
-        <div id="ssLotTeams"></div>
-        <div class="row" style="margin-top:6px"><button class="btn primary" id="ssLotDraw">Run the lottery 🎱</button><button class="btn small" id="ssLotSim">Simulate 10,000</button></div>
-        <div class="ss-lotres" id="ssLotRes"></div>
-        <div id="ssLotSimOut"></div>
-      </div>
-    </div>
-  </div>
+<!-- ================= WAIVERS ================= -->
+<section class="view" id="v-nbawv" role="tabpanel" aria-labelledby="tab-nbawv">
+  <div class="viewhead"><div><h2>Waivers</h2><div class="sub">Who's trending on Sleeper and still free in your league, the best available players by points per game, and your weakest bench spots.</div></div></div>
+  <div class="chips nb-chips" id="nbChipsW" role="group" aria-label="League"></div>
+  <div id="nbWV" style="margin-top:var(--sp-3)"></div>
 </section>
 
 </main>
@@ -1407,7 +1375,7 @@ $('#tabs').addEventListener('keydown', e => {
 $('#clockPill').addEventListener('click', () => showView('draft'));
 function renderActive() {
   renderHeader();
-  const fn = ({ board: renderBoard, draft: renderDraft, trade: renderTrade, league: renderLeague, lab: renderLab, compare: renderCompare, lockin: renderLockin, settings: renderSettings, plan: renderPlan, season: () => window.renderSeason && window.renderSeason() })[VIEW];
+  const fn = ({ board: renderBoard, draft: renderDraft, trade: renderTrade, league: renderLeague, lab: renderLab, compare: renderCompare, lockin: renderLockin, settings: renderSettings, plan: renderPlan, gameday: () => window.NBA && NBA.render('gameday'), nbass: () => window.NBA && NBA.render('nbass'), nbawv: () => window.NBA && NBA.render('nbawv') })[VIEW];
   if (VIEW === 'draft') fn(); else withD(DLIVE, fn);
   if (VIEW === 'board') withD(DLIVE, renderHero);
 }
@@ -2753,6 +2721,5 @@ window.__DDHQ = { PLAYERS, RANKED: () => RANKED, D: () => D, highlights, firstPi
 </script>
 
 <script src="../assets/fx.js"></script>
-<script src="nba-snapshot.js"></script>
-<script src="season.js"></script>
+<script src="nba.js"></script>
 </body></html>
