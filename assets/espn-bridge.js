@@ -4,7 +4,7 @@
    league data to your Fantasy Hub tab. It only answers the Fantasy Hub page, and never reads or sends your password. */
 (() => {
   const src = (document.currentScript && document.currentScript.src) || 'https://fletchace.github.io/fantasy-hub/assets/espn-bridge.js';
-  const ORIGIN = new URL(src).origin;
+  const ORIGIN = new URL(src).origin, HUB = new URL('../football/#espn', src).href;
   const href = location.href, lid0 = (href.match(/leagueId=(\d+)/i) || [])[1] || '';
   const urlSeason = +((href.match(/seasonId=(\d{4})/i) || [])[1] || 0), now = new Date();
   const defSeason = urlSeason || (now.getMonth() < 2 ? now.getFullYear() - 1 : now.getFullYear());
@@ -44,7 +44,12 @@
       badge(s === '401' || s === '403' ? "ESPN won't show this league to this tab. Sign in to ESPN here, then click the bookmark again." : 'Could not read the league from ESPN (' + s + '). Try again in a minute.');
     }
   }
-  const kick = () => { const w = window.__fhHub; if (w && !w.closed) send(w); };
+  // If the browser blocked the new tab, a click on the badge opens it (clicks are allowed to open tabs).
+  function blocked() {
+    badge('Chrome blocked the Fantasy Hub tab. Click here to open it.', true);
+    document.getElementById('fh-bridge').onclick = function () { window.__fhHub = window.open(HUB, 'fantasyhub'); this.onclick = () => this.remove(); kick(); };
+  }
+  const kick = () => { const w = window.__fhHub; if (w && !w.closed) send(w); else blocked(); };
   if (!window.__fhBridge) addEventListener('message', e => {
     if (e.origin !== ORIGIN || !e.data || (e.data.fh !== 'ready' && e.data.fh !== 'get')) return;
     send(e.source, e.data);
