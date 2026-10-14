@@ -173,6 +173,59 @@ tr.danger td:first-child{box-shadow:inset 3px 0 0 var(--flag)}
 .mstat div{padding:9px 11px;border-radius:12px;background:rgba(0,0,0,.22);border:1px solid var(--line)}
 .mstat .l{display:block;font:800 10px/1.2 var(--font-body);letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
 .mstat b{display:block;font:400 19px/1.2 var(--font-jersey);margin-top:3px}
+/* Live board: every matchup on one screen, sized in em so lbFit() can shrink it to the window */
+body.lb-on .phero,body.lb-on .foot{display:none}
+body.lb-on main.wrap{max-width:none}
+body.lb-on .tabs{margin-top:12px;margin-bottom:10px}
+:fullscreen body.lb-on .topnav,:fullscreen body.lb-on .tabs{display:none}
+.lb-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.lb-top > b{font:800 22px/1 var(--font-display);text-transform:uppercase;letter-spacing:.6px}
+.lb-top .sp{flex:1}
+.lb-k{font-weight:800}.lb-k.up{color:var(--neon)}.lb-k.behind{color:var(--warn)}.lb-k.down{color:var(--flag)}
+.lb-wrap{overflow:hidden}
+.lb-grid{--fs:15px;font-size:var(--fs);height:100%;overflow:hidden;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:.7em;align-content:start}
+.lb-card{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:.55em .65em .6em;min-width:0}
+.lb-lg{display:flex;align-items:center;gap:.5em;font:700 .72em/1.2 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--lime)}
+.lb-lg .sp{flex:1}
+.lb-wp{font:800 1.05em/1 var(--font-display);letter-spacing:.04em;padding:.2em .5em;border-radius:6px}
+.lb-wp.good{background:rgba(74,222,128,.16);color:var(--neon)}.lb-wp.bad{background:rgba(244,63,94,.16);color:#fda4af}
+.lb-head{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:end;gap:.5em;margin:.35em 0 .3em}
+.lb-tm{min-width:0}.lb-tm.r{text-align:right}
+.lb-tn{font:700 .8em/1.2 var(--font-body);color:var(--chalk-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-tm.me .lb-tn{color:var(--chalk)}
+.lb-sc{display:inline-block;font:900 2.3em/1 var(--font-display);letter-spacing:.02em;color:var(--chalk);font-variant-numeric:tabular-nums}
+.lb-tm.me .lb-sc{color:#86efac;text-shadow:0 0 18px rgba(74,222,128,.35)}
+.lb-sc.bad{color:#fda4af}
+.lb-pj{font-size:.74em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lb-pj b{color:var(--chalk-2)}
+.lb-vs{font:900 .9em/1 var(--font-display);color:var(--muted);padding-bottom:.9em}
+.lb-wpbar{height:.3em;border-radius:99px;background:rgba(244,63,94,.35);overflow:hidden;margin-bottom:.4em}
+.lb-wpbar i{display:block;height:100%;background:var(--neon);border-radius:99px;transition:width .6s}
+.lb-rows{display:grid;gap:.22em}
+.lb-row{display:grid;grid-template-columns:minmax(0,1fr) 2.6em minmax(0,1fr);align-items:stretch;gap:.3em}
+.lb-row.two{grid-template-columns:2.6em minmax(0,1fr) 2.6em minmax(0,1fr)}
+.lb-slot{display:grid;place-items:center;font:800 .62em/1 var(--font-body);letter-spacing:.06em;color:var(--muted);text-transform:uppercase;background:rgba(255,255,255,.04);border-radius:6px}
+.lb-p{position:relative;overflow:hidden;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.4em;padding:.28em .45em .32em;border-radius:8px;background:rgba(0,0,0,.22);border:1px solid transparent;cursor:pointer;min-width:0}
+.lb-p:hover{border-color:var(--line-strong)}
+.lb-p.r .lb-s{order:1;text-align:left}.lb-p.r .lb-who{order:2;text-align:right}.lb-p.r .lb-pos{order:3}
+.lb-p.empty{cursor:default;color:var(--flag);grid-template-columns:1fr}
+.lb-pos{font:800 .62em/1 var(--font-body);color:var(--pc);border:1px solid var(--pc);border-radius:5px;padding:.25em .3em;min-width:2.6em;text-align:center}
+.lb-who{min-width:0;display:flex;flex-direction:column;line-height:1.15}
+.lb-n{font-weight:700;font-size:.92em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-inj{color:var(--flag);font-size:.8em;font-weight:800}
+.lb-g{font-size:.68em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.03em}
+.lb-g.live{color:var(--neon);font-weight:800}.lb-g.bye{color:var(--flag);font-weight:800}
+.lb-s{display:flex;flex-direction:column;align-items:flex-end;line-height:1}
+.lb-p.r .lb-s{align-items:flex-start}
+.lb-s b{font:800 1.25em/1 var(--font-display);font-variant-numeric:tabular-nums}
+.lb-s small{font:600 .7em/1.2 var(--font-mono);color:var(--muted);margin-top:.15em}
+.lb-p.up .lb-s b{color:var(--neon)}.lb-p.behind .lb-s b{color:var(--warn)}.lb-p.down .lb-s b{color:var(--flag)}.lb-p.wait .lb-s b{color:var(--muted)}
+.lb-bar{position:absolute;left:0;bottom:0;height:2px;background:var(--muted);opacity:.7;transition:width .6s}
+.lb-p.r .lb-bar{left:auto;right:0}
+.lb-p.up .lb-bar{background:var(--neon)}.lb-p.behind .lb-bar{background:var(--warn)}.lb-p.down .lb-bar{background:var(--flag)}
+.lb-p.bump{animation:lbflash 1.4s ease-out}
+.lb-sc.bump{animation:bump .6s cubic-bezier(.3,1.6,.5,1)}
+@keyframes lbflash{0%{background:rgba(74,222,128,.45)}100%{background:rgba(0,0,0,.22)}}
+@media (max-width:700px){.lb-grid{grid-template-columns:minmax(0,1fr)}}
 </style>
 </head>
 <body class="theme-fb">
@@ -207,6 +260,7 @@ tr.danger td:first-child{box-shadow:inset 3px 0 0 var(--flag)}
 
   <nav class="tabs" role="tablist" aria-label="Football HQ sections" id="tabs">
     <button role="tab" data-v="gameday" aria-selected="true">🏟️ Gameday</button>
+    <button role="tab" data-v="live" aria-selected="false">📺 Live</button>
     <button role="tab" data-v="leagues" aria-selected="false">🏆 Leagues</button>
     <button role="tab" data-v="startsit" aria-selected="false">🔁 Start / Sit</button>
     <button role="tab" data-v="waivers" aria-selected="false">📡 Waivers</button>
@@ -221,6 +275,9 @@ tr.danger td:first-child{box-shadow:inset 3px 0 0 var(--flag)}
     <div id="connectBox"></div>
     <div id="gamedayBody"></div>
   </section>
+
+  <!-- LIVE BOARD -->
+  <section class="view" id="v-live" role="tabpanel"><div id="liveBody"></div></section>
 
   <!-- LEAGUES -->
   <section class="view" id="v-leagues" role="tabpanel">

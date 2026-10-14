@@ -257,7 +257,7 @@ function espnSync(L) {
 async function redrawLive() {
   updateBoard();
   const typing = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
-  if (['gameday', 'leagues', 'startsit', 'waivers'].includes(G.view) && !modalBg.classList.contains('on') && !typing) { G.silent = true; try { await renderers[G.view](); } finally { G.silent = false; } }
+  if (['gameday', 'live', 'leagues', 'startsit', 'waivers'].includes(G.view) && !modalBg.classList.contains('on') && !typing) { G.silent = true; try { await renderers[G.view](); } finally { G.silent = false; } }
 }
 addEventListener('message', e => {
   const m = e.data;
@@ -464,13 +464,14 @@ function updateBoard() {
 }
 
 /* ---------- router ---------- */
-const VIEWS = ['gameday', 'leagues', 'startsit', 'waivers', 'dynasty', 'trade', 'mock', 'plan'];
+const VIEWS = ['gameday', 'live', 'leagues', 'startsit', 'waivers', 'dynasty', 'trade', 'mock', 'plan'];
 const renderers = {};
 function show(v) {
   if (!VIEWS.includes(v)) v = 'gameday';
   $$('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.v === v ? 'true' : 'false'));
   $$('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
-  G.view = v; if (renderers[v]) renderers[v]();
+  G.view = v; document.body.classList.toggle('lb-on', v === 'live'); if (v === 'live') window.scrollTo(0, 0);
+  if (renderers[v]) renderers[v]();
 }
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if (!b) return; if (location.hash.slice(1) === b.dataset.v) show(b.dataset.v); else location.hash = b.dataset.v; });
 addEventListener('hashchange', () => show(location.hash.slice(1)));
@@ -942,7 +943,7 @@ async function refreshLive(manual) {
     LIVE.last = Date.now();
     updateBoard();
     const typing = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
-    if (['gameday', 'leagues', 'startsit'].includes(G.view) && !modalBg.classList.contains('on') && !typing) { G.silent = true; try { await renderers[G.view](); } finally { G.silent = false; } }
+    if (['gameday', 'live', 'leagues', 'startsit'].includes(G.view) && !modalBg.classList.contains('on') && !typing) { G.silent = true; try { await renderers[G.view](); } finally { G.silent = false; } }
     flashChanges(before);
   } catch (e) { if (manual) toast('Could not reach Sleeper'); }
   LIVE.busy = false;
@@ -962,10 +963,86 @@ function scheduleLive() { clearTimeout(LIVE.timer); LIVE.timer = setTimeout(asyn
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && (G.user || espnSaved().length) && Date.now() - LIVE.last > 30e3) refreshLive().then(scheduleLive); });
 setInterval(() => { const el = document.getElementById('syncAgo'); if (!el || !LIVE.last) return; const s = Math.round((Date.now() - LIVE.last) / 1000); el.textContent = `· updated ${s < 60 ? s + 's' : Math.round(s / 60) + ' min'} ago · auto every ${gamesLiveNow() ? '30s' : '5 min'}`; }, 1000);
 
+/* =================== LIVE BOARD ===================
+   Every matchup on one screen for keeping beside the TV: starters side by side with live points, each player's
+   projection under his score (green = beating it, amber = still playing and behind, red = finished short), and both
+   teams' scores, projected finals and pre-game projections. The text shrinks to fit the window, so nothing scrolls. */
+const lbName = p => p.pos === 'DEF' ? (p.team || p.id) + ' D/ST' : (n => n.length > 1 ? n[0][0] + '. ' + n.slice(1).join(' ') : n[0])(String(p.name).split(' '));
+function lbGame(team, w) {
+  if (!team || team === 'FA') return ['', 'FA'];
+  const g = weekGames(w)[team];
+  if (!g) return ['bye', 'BYE'];
+  if (g.status === 'in_game' || g.status === 'in_progress') return ['live', 'LIVE'];
+  if (g.status === 'complete' || g.date < today()) return ['fin', 'FINAL'];
+  return ['pre', (g.home ? 'v ' : '@ ') + g.opp + ' · ' + new Date(g.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' })];
+}
+function lbCell(id, pts, L, w, side, key) {
+  if (!id || id === '0') return `<div class="lb-p ${side} empty"><span class="lb-who"><span class="lb-n">Empty slot</span></span></div>`;
+  const p = pl(id), proj = projFor(id, L, w), [gs, gl] = lbGame(p.team, w);
+  const st = gs === 'pre' || gs === 'bye' || gs === '' ? 'wait' : pts >= proj ? 'up' : gs === 'fin' ? 'down' : 'behind';
+  const pct = proj > 0 ? Math.min(100, pts / proj * 100) : pts > 0 ? 100 : 0;
+  const inj = p.inj && gs === 'pre' ? ` <span class="lb-inj">${esc(/quest/i.test(p.inj) ? 'Q' : String(p.inj).toUpperCase())}</span>` : '';
+  return `<div class="lb-p ${side} ${st}" data-pid="${esc(id)}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
+    <span class="lb-pos" style="--pc:${POS_COL[p.pos] || '#8a93ad'}">${esc(p.pos)}</span>
+    <span class="lb-who"><span class="lb-n">${esc(lbName(p))}${inj}</span><span class="lb-g ${gs}">${esc(gl)}</span></span>
+    <span class="lb-s"><b>${f1(pts)}</b><small>${f1(proj)}</small></span><i class="lb-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
+}
+const lbPre = (e, L, w) => (e && e.starters || []).reduce((t, id) => t + (id && id !== '0' ? projFor(id, L, w) : 0), 0);
+const lbSlot = s => SLOT_LBL[s] || s;
+function lbTeam(name, pts, proj, pre, side, key, me) {
+  return `<div class="lb-tm ${side} ${me ? 'me' : ''}"><div class="lb-tn">${esc(name)}</div><b class="lb-sc" data-k="${esc(key)}" data-v="${pts.toFixed(2)}">${f1(pts)}</b>
+    <div class="lb-pj">proj <b>${f1(proj)}</b> · pre-game ${f1(pre)}</div></div>`;
+}
+function lbH2H(L, w) {
+  const m = matchupOf(L); if (!m) return '';
+  const a = m.me, b = m.opp, pa = lbPre(a, L, w), pb = lbPre(b, L, w), wp = m.wp;
+  const rows = L.slots.map((s, i) => `<div class="lb-row">${lbCell((a.starters || [])[i], (a.starters_points || [])[i] || 0, L, w, 'l', L.id + ':a:' + i)}<span class="lb-slot">${esc(lbSlot(s))}</span>${b ? lbCell((b.starters || [])[i], (b.starters_points || [])[i] || 0, L, w, 'r', L.id + ':b:' + i) : '<div></div>'}</div>`).join('');
+  return `<section class="lb-card"><div class="lb-lg"><span>${esc(L.name)}</span><span class="sp"></span>${wp != null ? `<span class="lb-wp ${wp >= .5 ? 'good' : 'bad'}">${Math.round(wp * 100)}% to win</span>` : ''}</div>
+    <div class="lb-head">${lbTeam(m.myName, m.myPts, m.myProj, pa, 'l', L.id + ':A', true)}<span class="lb-vs">VS</span>${lbTeam(m.oppName, m.oppPts, m.oppProj, pb, 'r', L.id + ':B', false)}</div>
+    ${wp != null ? `<div class="lb-wpbar"><i style="width:${Math.round(clamp(wp, .02, .98) * 100)}%"></i></div>` : ''}
+    <div class="lb-rows">${rows}</div></section>`;
+}
+function lbChop(L, w) {
+  const e = L.mine && L.matchups.find(x => x.roster_id === L.mine.roster_id); if (!e) return '';
+  const c = chopInfo(L), me = c.me || {}, pre = lbPre(e, L, w), half = Math.ceil(L.slots.length / 2);
+  const cell = i => i < L.slots.length ? `<span class="lb-slot">${esc(lbSlot(L.slots[i]))}</span>${lbCell((e.starters || [])[i], (e.starters_points || [])[i] || 0, L, w, 'l', L.id + ':a:' + i)}` : '<span></span><div></div>';
+  const rows = Array.from({ length: half }, (_, k) => `<div class="lb-row two">${cell(k)}${cell(k + half)}</div>`).join('');
+  const safe = c.survive == null ? null : c.survive;
+  return `<section class="lb-card"><div class="lb-lg"><span>${esc(L.name)} · chopped</span><span class="sp"></span>${safe != null ? `<span class="lb-wp ${safe >= .5 ? 'good' : 'bad'}">${Math.round(safe * 100)}% to survive</span>` : ''}</div>
+    <div class="lb-head">${lbTeam(L.teamName(L.mine), e.points || 0, me.proj || 0, pre, 'l', L.id + ':A', true)}
+      <div class="lb-tm r"><div class="lb-tn">Rank ${me.rank || '–'} of ${c.alive}</div><b class="lb-sc ${c.cushion != null && c.cushion < 0 ? 'bad' : ''}">${c.cushion == null ? '–' : (c.cushion >= 0 ? '+' : '') + f1(c.cushion)}</b><div class="lb-pj">${c.low ? `over the chop line · ${esc(c.low.name)} ${f1(c.low.proj)}` : 'no chop line yet'}</div></div></div>
+    <div class="lb-rows">${rows}</div></section>`;
+}
+function lbFit() {
+  const wrap = $('#lbWrap'), grid = $('#lbGrid'); if (!wrap || !grid || G.view !== 'live') return;
+  if (innerWidth < 700) { wrap.style.height = ''; grid.style.setProperty('--fs', '15px'); return; } // phones scroll instead
+  wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - window.scrollY - 10) + 'px';
+  let fs = 17; grid.style.setProperty('--fs', fs + 'px');
+  while (grid.scrollHeight > grid.clientHeight + 1 && fs > 8) { fs -= .5; grid.style.setProperty('--fs', fs + 'px'); }
+}
+function renderLive() {
+  const body = $('#liveBody'), ls = liveLeagues().filter(L => L.mine && L.matchups && L.matchups.length), w = G.week;
+  if (!ls.length) { body.innerHTML = `<div class="card empty"><div style="font-size:40px">📺</div><h3 style="margin:8px 0">No live matchups yet</h3><p class="sub">Connect your Sleeper username (or add an ESPN league) on the Gameday tab and your matchups show up here.</p><a class="btn gold" href="#gameday">Go to Gameday</a></div>`; return; }
+  const wg = G.sched.filter(g => g.week === w), live = wg.filter(g => g.status === 'in_game' || g.status === 'in_progress').length, fin = wg.filter(g => g.status === 'complete').length;
+  const before = {}; $$('#lbGrid [data-k]').forEach(el => before[el.dataset.k] = +el.dataset.v);
+  const cols = ls.length <= 3 ? ls.length : Math.ceil(ls.length / 2);
+  body.innerHTML = `<div class="lb-top"><b>Week ${w}</b><span class="tag ${live ? 'good live-dot' : ''}">${live ? `● ${live} game${live === 1 ? '' : 's'} live` : 'No games live'}</span><span class="sub">${fin} final · score <b class="lb-k up">beating</b> <b class="lb-k behind">behind, still playing</b> <b class="lb-k down">finished short</b> · small number = projection</span><span class="sp"></span><span class="sub" id="lbAgo"></span>
+      <button class="btn small" id="lbRefresh">↻ Refresh</button><button class="btn small" id="lbFull">⛶ Full screen</button></div>
+    <div class="lb-wrap" id="lbWrap"><div class="lb-grid" id="lbGrid" style="--cols:${cols}">${ls.map(L => L.chopped ? lbChop(L, w) : lbH2H(L, w)).join('')}</div></div>`;
+  lbFit();
+  $$('#lbGrid [data-k]').forEach(el => { const b = before[el.dataset.k]; if (b != null && +el.dataset.v > b + .05) { el.classList.add('bump'); if (el.classList.contains('lb-sc') && el.dataset.k.endsWith(':A')) { const r = el.getBoundingClientRect(); popText(r.left + r.width / 2, r.top, '+' + f1(+el.dataset.v - b), '#86efac', 26); } } });
+  $('#lbRefresh').onclick = async () => { $('#lbRefresh').disabled = true; await refreshLive(true); const b = $('#lbRefresh'); if (b) b.disabled = false; };
+  $('#lbFull').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => toast('Full screen is blocked here')); };
+}
+let lbRT = null;
+addEventListener('resize', () => { clearTimeout(lbRT); lbRT = setTimeout(lbFit, 120); });
+document.addEventListener('fullscreenchange', () => { const b = $('#lbFull'); if (b) b.textContent = document.fullscreenElement ? '✕ Exit full screen' : '⛶ Full screen'; setTimeout(lbFit, 60); });
+setInterval(() => { const el = $('#lbAgo'); if (!el || !LIVE.last) return; const s = Math.round((Date.now() - LIVE.last) / 1000); el.textContent = `updated ${s < 60 ? s + 's' : Math.round(s / 60) + ' min'} ago · auto every ${gamesLiveNow() ? '30s' : '5 min'}`; }, 1000);
+
 /* ---------- expose to dynasty.js ---------- */
 const HQ = window.HQ = { P, G, ST, pl, ph, posTag, injTag, pcell, ageOf, POS_COL, CURVE, curveVal, f1, openPlayer, openModal, closeModal, playerPicker, searchPlayers, renderers, show,
   ELIG: { QB: ['QB'], RB: ['RB'], WR: ['WR'], TE: ['TE'], K: ['K'], DEF: ['DEF'], FLEX: ['RB', 'WR', 'TE'], WRRB_FLEX: ['WR', 'RB'], REC_FLEX: ['WR', 'TE'], SUPER_FLEX: ['QB', 'RB', 'WR', 'TE'] } };
-Object.assign(renderers, { gameday: renderGameday, leagues: renderLeagues, startsit: renderStartSit, waivers: renderWaivers });
+Object.assign(renderers, { live: renderLive, gameday: renderGameday, leagues: renderLeagues, startsit: renderStartSit, waivers: renderWaivers });
 
 /* ---------- boot ---------- */
 (async () => {
