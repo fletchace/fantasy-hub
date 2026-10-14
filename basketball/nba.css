@@ -128,3 +128,56 @@ td.st-worse{color:var(--bad)}
 .duo-b.strat{border-color:#facc15;background:linear-gradient(135deg,rgba(250,204,21,.12),transparent 70%)}
 .duo-b.strat .eyebrow{color:#fde68a}
 .duo-b.hint{border-style:dashed}
+
+/* scoreboard on every tab: hardwood jumbotron with the Draft / In-season slider */
+.bb-sb{position:relative;overflow:hidden;border-radius:18px;margin:0 0 var(--sp-4);padding:18px 22px 16px;color:var(--hero-ink);box-shadow:var(--shadow);
+  background:radial-gradient(90% 160% at 100% 0%,rgba(255,122,46,.32),transparent 55%),repeating-linear-gradient(90deg,rgba(0,0,0,.13) 0 1px,transparent 1px 46px),linear-gradient(135deg,#3a1806 0%,#7a3a12 100%)}
+.bb-sb::before{content:"";position:absolute;right:-70px;top:-90px;width:240px;height:240px;border-radius:50%;border:3px solid var(--court-line);opacity:.5;pointer-events:none}
+.bb-sb::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,transparent,#ff7a2e,transparent);opacity:.7}
+.bb-sb-row{position:relative;display:flex;align-items:center;gap:14px 18px;flex-wrap:wrap}
+.bb-sb .eyebrow{color:var(--hero-accent)}
+.bb-sb-title{font:800 clamp(26px,3.6vw,40px)/1 var(--font-display);text-transform:uppercase;letter-spacing:.6px;margin-top:5px;color:#fff4e6}
+.bb-sb-tools{color:var(--hero-ink-2);font-size:13px;margin-top:5px}
+.bb-board{position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;margin-top:14px;border-radius:14px;overflow:hidden;border:1px solid var(--court-line);background:var(--court-line)}
+.bb-board>div{background:rgba(26,10,2,.8);padding:10px 14px;min-width:0;transition:background .2s}
+.bb-board .l{display:block;font:600 10.5px/1.2 var(--font-body);letter-spacing:1.3px;text-transform:uppercase;color:var(--hero-ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bb-board b{display:block;font:800 24px/1.15 var(--font-display);color:#ff9a57;letter-spacing:.6px;margin-top:3px;text-shadow:0 0 14px rgba(255,122,46,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.bb-board b.w{color:#fff4e6;text-shadow:none}
+.bb-board b.live{color:#4ade80;text-shadow:0 0 14px rgba(74,222,128,.45);animation:sbpulse 1.6s ease-in-out infinite}
+.bb-board b.warn{color:#fca5a5;text-shadow:0 0 14px rgba(248,113,113,.4)}
+@keyframes sbpulse{50%{opacity:.6}}
+body[data-mode="season"] .only-draft{display:none}
+body[data-mode="season"] .bb-board [data-sbgo]{cursor:pointer}
+.bb-board [data-sbgo]:hover,.bb-board .only-draft:hover{background:rgba(58,22,4,.9)}
+.sb-note{position:relative;margin-top:12px;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.3);border:1px dashed var(--court-line);font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:#fff4e6}
+.sb-note[hidden]{display:none}
+.sb-note input{min-width:0;flex:0 1 200px}
+.sb-note .sub{color:var(--hero-ink-2)}
+/* the slider: a basketball rolls across the track */
+.modesw{position:relative;display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:999px;background:rgba(0,0,0,.32);border:1px solid var(--court-line)}
+.ms-opt{background:none;border:0;color:var(--hero-ink-2);font:800 14px/1 var(--font-display);text-transform:uppercase;letter-spacing:.9px;padding:7px 8px;cursor:pointer;border-radius:999px;transition:color .2s,background .2s}
+.ms-opt:hover{color:#fff4e6}
+.ms-opt.on{color:#2a0d00;background:#ff9a57}
+body[data-mode="season"] .ms-opt.on{background:#4ade80;color:#052e16}
+.ms-track{position:relative;flex:none;width:78px;height:34px;border-radius:999px;border:2px solid rgba(255,224,190,.45);padding:0;cursor:grab;touch-action:none;
+  background:repeating-linear-gradient(90deg,rgba(0,0,0,.14) 0 1px,transparent 1px 12px),linear-gradient(90deg,#c2410c,#9a3412);transition:background .3s}
+body[data-mode="season"] .ms-track{background:repeating-linear-gradient(90deg,rgba(0,0,0,.14) 0 1px,transparent 1px 12px),linear-gradient(90deg,#15803d,#166534)}
+.ms-track:active{cursor:grabbing}
+.ms-track i{position:absolute;left:2px;top:2px;width:26px;height:26px;border-radius:50%;box-shadow:0 3px 8px rgba(0,0,0,.45);transition:transform .5s cubic-bezier(.3,1.35,.5,1);transform:translateX(0) rotate(0deg)}
+.ms-track i svg{display:block;width:26px;height:26px}
+body[data-mode="season"] .ms-track i{transform:translateX(44px) rotate(352deg)}
+.ms-track.drag i{transition:none}
+.ms-track:focus-visible{outline:3px solid #ffd08a;outline-offset:2px}
+@media (max-width:640px){.modesw{width:100%;justify-content:space-between}.bb-sb{padding:16px 16px 14px}.bb-board b{font-size:20px}}
+#tabs.mswap button:not([hidden]){animation:tabin .4s cubic-bezier(.2,.8,.3,1.2) both}
+#tabs.mswap button:not([hidden]):nth-child(n+5){animation-delay:.05s}
+@keyframes tabin{from{opacity:0;transform:translateY(-8px) scale(.92)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.ms-track i,#tabs.mswap button{transition:none;animation:none}.bb-board b.live{animation:none}}
+/* schedule grid */
+.nb-sch td,.nb-sch th{white-space:nowrap}
+.nb-sch small{font-weight:500;opacity:.75}
+.gc{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 4px;border-radius:7px;font:800 13px/1 var(--font-mono);background:var(--surface-2);color:var(--ink)}
+.gc.g4{background:rgba(34,197,94,.22);color:var(--good-ink)}
+.gc.g3{background:rgba(255,122,46,.16);color:var(--accent-text)}
+.gc.g1{background:rgba(239,68,68,.18);color:var(--bad)}
+.nb-sch .lv{display:inline-block;min-width:38px;margin-left:6px;font:600 12px var(--font-mono);color:var(--muted)}

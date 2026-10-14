@@ -170,7 +170,7 @@ function renderGameday(silent) {
     const head = `<div class="row"><b class="nb-lg">${esc(L.name)}</b><span class="spacer"></span><span class="pill">${L.status === 'pre_draft' ? 'Pre-draft' : L.status === 'drafting' ? 'Drafting' : (L.lg.settings && L.lg.settings.type === 2) ? 'Dynasty' : 'Season'}</span></div>`;
     if (L.status === 'pre_draft' || L.status === 'drafting') return `<div class="card nb-card" data-lg="${esc(L.id)}">${head}<div class="nb-big">${L.status === 'drafting' ? 'Draft is live' : 'Startup draft next'}</div><p class="sub">Gameday, Start/Sit and Waivers light up once rosters are set. Until then, the draft tools are where the action is.</p><button class="btn primary small" data-go="draft">Open Draft Room</button></div>`;
     const m = matchupOf(L), rec = L.me ? `${L.me.w}-${L.me.l}` : '–';
-    if (!m) return `<div class="card nb-card" data-lg="${esc(L.id)}">${head}<p class="sub" style="margin:12px 0">${N.regular ? 'No matchup this week.' : `Season tips off Oct 20 · ${fmtCountdown(Date.UTC(2026, 9, 20, 23, 30))}`}</p><div class="row"><span class="pill">${rec}</span>${L.me ? `<span class="pill">#${L.me.rank} of ${L.rosters.length}</span>` : ''}</div></div>`;
+    if (!m) return `<div class="card nb-card" data-lg="${esc(L.id)}">${head}<p class="sub" style="margin:12px 0">${N.regular ? 'No matchup this week.' : `Season tips off Oct 20 · ${fmtCountdown(Date.UTC(2026, 9, 20, 19, 0))}`}</p><div class="row"><span class="pill">${rec}</span>${L.me ? `<span class="pill">#${L.me.rank} of ${L.rosters.length}</span>` : ''}</div></div>`;
     return `<div class="card nb-card" data-lg="${esc(L.id)}">${head}
       <div class="nb-vs"><div><div class="sub">${esc(m.myName)}</div><b class="sc me">${f1(m.myPts)}</b><div class="sub">proj ${f1(m.myProj)}</div></div><span class="nb-mid">VS</span><div style="text-align:right"><div class="sub">${esc(m.oppName)}</div><b class="sc">${f1(m.oppPts)}</b><div class="sub">proj ${f1(m.oppProj)}</div></div></div>
       ${m.wp != null ? wpBar(m.wp) : ''}<div class="row" style="margin-top:8px">${m.wp != null ? `<b class="nb-pct" style="color:${m.wp >= .5 ? 'var(--good-ink)' : 'var(--bad)'}">${Math.round(m.wp * 100)}%</b><span class="sub">to win</span>` : ''}<span class="spacer"></span><span class="pill">${rec}</span>${L.me ? `<span class="pill">#${L.me.rank} of ${L.rosters.length}</span>` : ''}</div></div>`;
@@ -248,7 +248,7 @@ async function renderWV() {
 }
 
 /* ---------- countdowns, calendar, lock-or-roll ---------- */
-const OPEN = Date.UTC(2026, 9, 20, 23, 30), TD = Date.UTC(2027, 2, 8, 4, 59), PO = Date.UTC(2027, 2, 15, 4), CH = Date.UTC(2027, 3, 5, 3, 59);
+const OPEN = Date.UTC(2026, 9, 20, 19, 0), TD = Date.UTC(2027, 2, 8, 4, 59), PO = Date.UTC(2027, 2, 15, 4), CH = Date.UTC(2027, 3, 5, 3, 59);
 setInterval(() => { if (!q('#v-gameday').classList.contains('on')) return; q('#ssOpen').textContent = fmtCountdown(OPEN); q('#ssTd').textContent = fmtCountdown(TD); q('#ssPo').textContent = fmtCountdown(PO); q('#ssCh').textContent = fmtCountdown(CH); }, 1000);
 function drawTimeline() {
   const start = Date.UTC(2026, 9, 20), end = Date.UTC(2027, 3, 5);
@@ -269,8 +269,97 @@ function lockCalc() {
 }
 ['ssScore', 'ssAvg', 'ssLeft'].forEach(id => q('#' + id).addEventListener('input', lockCalc));
 
+/* =================== SCHEDULE =================== */
+function weeksAhead(k) { return [...new Set(N.sched.map(g => g.week))].filter(x => x >= N.week).sort((a, b) => a - b).slice(0, k); }
+function teamWeeks(weeks) {
+  const T = {};
+  for (const g of N.sched) {
+    if (!weeks.includes(g.week)) continue;
+    for (const t of [g.home.team, g.away.team]) { const r = T[t] || (T[t] = {}), c = r[g.week] || (r[g.week] = { total: 0, left: 0 }); c.total++; if (g.status !== 'complete') c.left++; }
+  }
+  return T;
+}
+const gcls = n => n >= 4 ? 'g4' : n === 3 ? 'g3' : n <= 1 ? 'g1' : 'g2';
+function renderSched() {
+  chipsInto(q('#nbChipsC'), renderSched);
+  const box = q('#nbSched'), weeks = weeksAhead(4), cur = N.week;
+  if (!N.sched.length) { box.innerHTML = '<div class="card ss-empty"><h3>No schedule yet</h3><p class="sub">Couldn\'t reach Sleeper. Try Refresh on the Gameday tab.</p></div>'; return; }
+  const T = teamWeeks(weeks), live = w => w === cur && N.regular;
+  const cnt = (t, w) => { const c = (T[t] || {})[w]; return !c ? 0 : live(w) ? c.left : c.total; };
+  const head = weeks.map(w => `<th class="r">Wk ${w}${live(w) ? ' <small>left</small>' : ''}</th>`).join('');
+  const L = lgSel();
+  let mine;
+  if (L && drafted(L)) {
+    const ids = L.myIds.filter(id => !L.ir.includes(id) && !L.taxi.includes(id)).map(id => ({ p: pl(id), mu: fppg(id, L.sc) })).sort((a, b) => b.mu - a.mu);
+    mine = `<div class="card"><div class="row"><h3 style="margin:0">${esc(L.name)}: your roster</h3><span class="spacer"></span><span class="sub">games, then the Lock-In value of that week</span></div>
+      <div class="tablewrap" style="max-height:none;margin-top:10px"><table class="nb-sch"><thead><tr><th>Player</th><th class="r">FPPG</th>${head}</tr></thead><tbody>
+      ${ids.map(x => `<tr><td>${pcell(x.p)}</td><td class="r num">${f1(x.mu)}</td>${weeks.map(w => { const n = cnt(x.p.team, w); return `<td class="r"><span class="gc ${gcls(n)}">${n}</span><small class="lv">${f1(lockVal(x.mu, n))}</small></td>`; }).join('')}</tr>`).join('')}
+      <tr class="nb-sub"><td colspan="2">Roster games</td>${weeks.map(w => `<td class="r num">${ids.reduce((t, x) => t + cnt(x.p.team, w), 0)}</td>`).join('')}</tr></tbody></table></div></div>`;
+  } else mine = `<div class="card ss-empty"><h3>Your roster's games show up here after the startup draft</h3><p class="sub">The team grid below already works for planning pickups.</p></div>`;
+  const total = t => weeks.reduce((s, w) => s + cnt(t, w), 0);
+  const teams = Object.keys(T).sort((a, b) => total(b) - total(a) || a.localeCompare(b));
+  box.innerHTML = mine + `<div class="card" style="margin-top:var(--sp-4)"><div class="row"><h3 style="margin:0">Every team, next ${weeks.length} weeks</h3><span class="spacer"></span><span class="sub">Most games first: stream from the top. <span class="gc g4">4</span> busy week · <span class="gc g1">1</span> light week</span></div>
+    <div class="tablewrap" style="max-height:none;margin-top:10px"><table class="nb-sch"><thead><tr><th>Team</th>${head}<th class="r">Total</th></tr></thead><tbody>
+    ${teams.map(t => `<tr><td><b>${esc(t)}</b></td>${weeks.map(w => { const n = cnt(t, w); return `<td class="r"><span class="gc ${gcls(n)}">${n}</span></td>`; }).join('')}<td class="r num"><b>${total(t)}</b></td></tr>`).join('')}</tbody></table></div></div>`;
+}
+
+/* =================== SCOREBOARD (top of every tab) =================== */
+// Tip-off times come from ESPN's public scoreboard; Sleeper's schedule only has dates.
+const etDay = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+const fmtDay = ds => new Date(ds + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+async function loadTips(force) {
+  if (!force && N.tipsAt && Date.now() - N.tipsAt < 10 * 60e3) return;
+  N.tipsAt = Date.now();
+  const t = etDay(), days = [...new Set(N.sched.filter(g => g.date >= t && g.status !== 'complete').map(g => g.date))].sort().slice(0, 2), ev = [];
+  for (const d of days) {
+    try { const j = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=' + d.replace(/-/g, ''), { cache: 'no-store' }).then(r => r.json()); for (const e of j.events || []) ev.push({ t: Date.parse(e.date), name: e.shortName, st: ((e.status || {}).type || {}).state }); } catch (e) {}
+    if (ev.some(e => e.st === 'in' || (e.st === 'pre' && e.t > Date.now()))) break;
+  }
+  N.tips = ev;
+}
+function tipText() {
+  const ev = N.tips || [], live = ev.filter(e => e.st === 'in');
+  if (live.length) return { l: 'On the court now', v: `${live.length} LIVE`, live: true };
+  const nx = ev.filter(e => e.st === 'pre' && e.t > Date.now()).sort((a, b) => a.t - b.t)[0];
+  if (nx) return { l: `Next tip-off · ${nx.name}`, v: fmtCountdown(nx.t), t: nx.t };
+  const d = N.sched.filter(g => g.date >= etDay() && g.status !== 'complete').map(g => g.date).sort()[0];
+  return { l: 'Next tip-off', v: d ? fmtDay(d).toUpperCase() : '--' };
+}
+const setTxt = (sel, v) => { const el = q(sel); if (el && el.textContent !== String(v)) el.textContent = v; };
+function tickPanel() {
+  if (!q('#bbSB')) return;
+  if (Date.now() < OPEN) { setTxt('#sbL1', 'NBA · preseason'); setTxt('#sbV1', 'OPENS OCT 20'); }
+  else { setTxt('#sbL1', N.regular ? 'NBA' : 'NBA season'); setTxt('#sbV1', N.regular ? `WEEK ${N.week}` : 'PLAYOFFS / OFF'); }
+  const tp = tipText(); setTxt('#sbTipL', tp.l); setTxt('#sbTip', tp.v); q('#sbTip').classList.toggle('live', !!tp.live);
+  if (tp.t && tp.t <= Date.now() + 1000 && Date.now() - (N.tipsAt || 0) > 60e3) loadTips(true).then(tickPanel);
+}
+function renderPanel() {
+  if (!q('#bbSB')) return;
+  tickPanel();
+  const name = ST.get('username', ''), al = q('#sbAlerts');
+  if (!N.user) { setTxt('#sbLeagues', name && !N.err ? '…' : '–'); setTxt('#sbRecord', '–'); setTxt('#sbAlerts', '–'); al.classList.remove('warn'); }
+  else {
+    setTxt('#sbLeagues', N.leagues.length);
+    const rec = N.leagues.reduce((a, L) => L.me && drafted(L) ? [a[0] + L.me.w, a[1] + L.me.l] : a, [0, 0]); setTxt('#sbRecord', `${rec[0]}-${rec[1]}`);
+    const set = N.leagues.filter(drafted);
+    if (!set.length) { setTxt('#sbAlerts', 'AFTER DRAFT'); al.classList.remove('warn'); }
+    else { const n = set.flatMap(alertsFor).length; setTxt('#sbAlerts', n ? `${n} TO CHECK` : 'ALL CLEAR'); al.classList.toggle('warn', n > 0); }
+  }
+  const mode = window.BBMODE ? BBMODE.get() : 'draft', note = q('#sbNote');
+  let html = '';
+  if (!name) html = `<form class="row" id="sbCn" style="margin:0;flex:1"><span>Connect Sleeper to fill in your leagues, record and alerts:</span><label class="vh" for="sbName">Sleeper username</label><input type="text" id="sbName" placeholder="Sleeper username" required><button class="btn small primary" type="submit">Load leagues</button><span class="sub" id="sbCnMsg"></span></form>`;
+  else if (N.err && !N.user) html = `<span>Couldn't reach Sleeper for <b>${esc(name)}</b>.</span><button class="btn small" type="button" id="sbRetry">Try again</button>`;
+  else if (N.user && mode === 'draft' && N.leagues.some(drafted)) html = `<span>✅ <b>Your startup draft is done.</b> Slide over to In-season for Gameday, Start/Sit, Waivers and Schedule.</span><button class="btn small primary" type="button" data-mode-go="season">Switch to In-season</button>`;
+  else if (N.user && mode === 'season' && N.leagues.length && !N.leagues.some(drafted)) html = `<span>🏀 <b>No rosters yet.</b> Your startup draft hasn't happened, so the draft tools are on the other side of the slider.</span><button class="btn small" type="button" data-mode-go="draft">Back to Draft mode</button>`;
+  if (note.dataset.h === html) return;
+  note.dataset.h = html; note.innerHTML = html; note.hidden = !html;
+  const f = q('#sbCn');
+  if (f) f.onsubmit = async e => { e.preventDefault(); const v = q('#sbName').value.trim(); if (!v) return; ST.set('username', v); q('#sbCnMsg').textContent = 'Loading…'; try { N.err = false; await refresh(true); renderConnect(); } catch (x) { ST.del('username'); N.err = false; q('#sbCnMsg').textContent = `No Sleeper user named "${v}".`; } };
+  const r = q('#sbRetry'); if (r) r.onclick = () => { N.err = false; refresh(true).catch(() => { N.err = true; renderPanel(); }); };
+}
+
 /* ---------- loading + live refresh ---------- */
-let booted = false, view = null;
+let booting = null, view = null;
 function liveTag() {
   const el = q('#nbLive'); if (!el) return;
   if (!N.user) { el.textContent = '● Not connected'; el.classList.remove('on'); return; }
@@ -286,33 +375,44 @@ async function refresh(fresh) {
     N.last = Date.now();
     if (N.sel == null && N.leagues[0]) N.sel = N.leagues[0].id;
     const typing = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
-    if (view === 'gameday' && !typing) renderGameday(true); else if (view === 'nbass' && !typing) renderSS(); else if (view === 'nbawv' && !typing) renderWV();
+    if (view === 'gameday' && !typing) renderGameday(true); else if (view === 'nbass' && !typing) renderSS(); else if (view === 'nbawv' && !typing) renderWV(); else if (view === 'sched' && !typing) renderSched();
+    loadTips().then(renderPanel); renderPanel();
     for (const L of N.leagues) { const m = matchupOf(L); if (m && before[L.id] != null && m.myPts > before[L.id] + .05) { const el = q(`.nb-card[data-lg="${CSS.escape(L.id)}"] .sc.me`); if (el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); const r = el.getBoundingClientRect(); popText(r.left + r.width / 2, r.top, '+' + f1(m.myPts - before[L.id]), '#ff9a57', 30); } } }
-  } finally { N.busy = false; liveTag(); }
+  } finally { N.busy = false; liveTag(); renderPanel(); }
 }
 const gamesLive = () => N.sched.some(g => g.status === 'in_game' || g.status === 'in_progress' || (g.date === today() && g.status !== 'complete'));
-function schedule() { clearTimeout(N.timer); N.timer = setTimeout(async () => { if (document.visibilityState === 'visible' && view) await refresh(true).catch(() => {}); schedule(); }, gamesLive() ? 30e3 : 120e3); }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && view && N.user && Date.now() - N.last > 30e3) refresh(true).catch(() => {}); });
+// Every 30s while games are on and an in-season tab is open, 2 min on those tabs otherwise, 5 min for the scoreboard alone.
+function schedule() { clearTimeout(N.timer); N.timer = setTimeout(async () => { if (document.visibilityState === 'visible') await refresh(true).catch(() => {}); schedule(); }, view && gamesLive() ? 30e3 : view ? 120e3 : 300e3); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && N.user && Date.now() - N.last > (view ? 30e3 : 120e3)) refresh(true).catch(() => {}); });
 
+// Loads once for the whole page: the scoreboard on top needs your leagues on every tab.
+function boot() {
+  return booting || (booting = (async () => {
+    drawTimeline(); lockCalc();
+    q('#nbRefresh').onclick = () => refresh(true).catch(() => {});
+    q('#nbCards').innerHTML = '<div class="empty-note">Loading your leagues…</div>';
+    try { await refresh(false); } catch (e) { N.err = true; q('#nbCards').innerHTML = '<div class="card ss-empty"><h3>Couldn\'t reach Sleeper</h3><p class="sub">Check your connection and hit Refresh.</p></div>'; renderPanel(); }
+    schedule();
+  })());
+}
 window.NBA = {
   async render(v) {
     view = v;
-    if (!booted) {
-      booted = true; drawTimeline(); lockCalc();
-      q('#nbRefresh').onclick = () => refresh(true).catch(() => {});
-      q('#nbCards').innerHTML = '<div class="empty-note">Loading your leagues…</div>';
-      try { await refresh(false); } catch (e) { q('#nbCards').innerHTML = '<div class="card ss-empty"><h3>Couldn\'t reach Sleeper</h3><p class="sub">Check your connection and hit Refresh.</p></div>'; }
-      schedule();
-    }
-    if (v === 'gameday') renderGameday(); else if (v === 'nbass') renderSS(); else if (v === 'nbawv') renderWV();
-  }
+    await boot();
+    if (N.err && !N.last) return;
+    if (v === 'gameday') renderGameday(); else if (v === 'nbass') renderSS(); else if (v === 'nbawv') renderWV(); else if (v === 'sched') renderSched();
+  },
+  panel: () => renderPanel()
 };
-// Leaving these tabs pauses refreshes.
-const mo = new MutationObserver(() => { const on = ['gameday', 'nbass', 'nbawv'].find(v => q('#v-' + v).classList.contains('on')); view = on || null; });
-['gameday', 'nbass', 'nbawv'].forEach(v => mo.observe(q('#v-' + v), { attributes: true, attributeFilter: ['class'] }));
+// Leaving these tabs slows refreshes down to the scoreboard's pace.
+const NB_VIEWS = ['gameday', 'nbass', 'nbawv', 'sched'];
+const mo = new MutationObserver(() => { const on = NB_VIEWS.find(v => q('#v-' + v).classList.contains('on')); view = on || null; });
+NB_VIEWS.forEach(v => mo.observe(q('#v-' + v), { attributes: true, attributeFilter: ['class'] }));
 
 /* ---------- deep links: #gameday, #draft, #board … ---------- */
-const openHash = () => { const v = location.hash.slice(1) === 'season' ? 'gameday' : location.hash.slice(1), b = v && document.querySelector(`#tabs button[data-v="${CSS.escape(v)}"]`); if (b) b.click(); };
+const openHash = () => { const v = location.hash.slice(1) === 'season' ? 'gameday' : location.hash.slice(1), b = v && document.querySelector(`#tabs button[data-v="${CSS.escape(v)}"]`); if (!b) return; if (b.hidden && window.BBMODE) BBMODE.set(BBMODE.get() === 'draft' ? 'season' : 'draft'); b.click(); };
 addEventListener('hashchange', openHash);
 openHash();
+{ const on = NB_VIEWS.find(v => q('#v-' + v).classList.contains('on')); if (on) NBA.render(on); else boot(); }
+setInterval(tickPanel, 1000);
 })();

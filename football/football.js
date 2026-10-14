@@ -222,9 +222,100 @@ function buildEspnLeague(d, saved) {
     scoring, slots, rosters, rosterById: byId, teamName: r => tname(r && r.team), mine, standings, matchups, teams: rosters.length, playoff: (st.scheduleSettings || {}).playoffTeamCount || 6, type: 0,
     myIds: mine ? mine.players : [], starters: mine ? mine.starters : null, ir: mine ? mine.reserve : [], taxi: [], me: standings.find(s => s.me), espn: saved };
 }
+/* Private ESPN leagues: ESPN only shares them with pages on espn.com, so the "ESPN → Hub" bookmark runs
+   assets/espn-bridge.js in an ESPN tab, reads the league there with your own ESPN sign-in and posts it to this page.
+   While that tab stays open it answers refresh requests; after it closes, the last copy is kept. */
+const ESPN_BR = { win: null, origin: null };
+const bridgeAlive = () => !!(ESPN_BR.win && !ESPN_BR.win.closed);
+const espnSnap = lid => ST.get('espnsnap_' + lid, null);
+function espnTrim(d) {
+  const ent = e => { const pe = e.playerPoolEntry, x = pe && pe.player; return { lineupSlotId: e.lineupSlotId, playerPoolEntry: pe ? { appliedStatTotal: pe.appliedStatTotal, player: x ? { id: x.id, fullName: x.fullName, defaultPositionId: x.defaultPositionId, proTeamId: x.proTeamId, injuryStatus: x.injuryStatus } : null } : null }; };
+  const st = d.settings || {}, period = (d.status || {}).currentMatchupPeriod || d.scoringPeriodId;
+  const side = x => x ? { teamId: x.teamId, totalPoints: x.totalPoints, totalPointsLive: x.totalPointsLive, rosterForCurrentScoringPeriod: { entries: ((x.rosterForCurrentScoringPeriod || {}).entries || []).map(ent) } } : null;
+  return { scoringPeriodId: d.scoringPeriodId, status: { currentMatchupPeriod: period },
+    settings: { name: st.name, rosterSettings: { lineupSlotCounts: (st.rosterSettings || {}).lineupSlotCounts || {} }, scoringSettings: { scoringItems: ((st.scoringSettings || {}).scoringItems || []).map(i => ({ statId: i.statId, points: i.points })) },
+      acquisitionSettings: { acquisitionBudget: (st.acquisitionSettings || {}).acquisitionBudget }, scheduleSettings: { playoffTeamCount: (st.scheduleSettings || {}).playoffTeamCount } },
+    teams: (d.teams || []).map(t => ({ id: t.id, name: t.name, location: t.location, nickname: t.nickname, primaryOwner: t.primaryOwner, record: { overall: (t.record || {}).overall || {} }, roster: { entries: ((t.roster || {}).entries || []).map(ent) } })),
+    schedule: (d.schedule || []).filter(m => m.matchupPeriodId === period).map(m => ({ id: m.id, matchupPeriodId: m.matchupPeriodId, home: side(m.home), away: side(m.away) })) };
+}
+const askBridge = x => { try { ESPN_BR.win.postMessage({ fh: 'get', leagueId: String(x.leagueId), season: +(x.season || G.season), week: G.week }, ESPN_BR.origin); } catch (e) {} };
+function fromSnap(x) { const sn = espnSnap(x.leagueId); if (!sn) return null; const L = buildEspnLeague(sn.data, x); L.via = 'bridge'; L.snapAt = sn.at; return L; }
 async function loadEspn() {
-  const list = espnSaved(); if (!list.length) { G.espnLeagues = []; return; }
-  G.espnLeagues = (await Promise.all(list.map(async x => { try { return buildEspnLeague(await espnFetch(x.leagueId, x.season || G.season, G.week), x); } catch (e) { return null; } }))).filter(Boolean);
+  const list = espnSaved(); G.espnMissing = []; if (!list.length) { G.espnLeagues = []; return; }
+  G.espnLeagues = (await Promise.all(list.map(async x => {
+    if (!(x.via === 'bridge' && bridgeAlive())) { try { const L = buildEspnLeague(await espnFetch(x.leagueId, x.season || G.season, G.week), x); L.via = 'direct'; return L; } catch (e) {} }
+    if (bridgeAlive()) askBridge(x);
+    const L = fromSnap(x); if (!L) G.espnMissing.push(x); return L;
+  }))).filter(Boolean);
+}
+function espnSync(L) {
+  if (L.via !== 'bridge') return '<span class="tag good">● Live from ESPN</span>';
+  if (bridgeAlive()) return '<span class="tag good" title="Your ESPN tab is feeding live scores">● Live via your ESPN tab</span>';
+  const m = Math.round((Date.now() - (L.snapAt || 0)) / 60e3), ago = m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' hr ago' : Math.round(m / 1440) + ' days ago';
+  return '<span class="tag q" title="Open this league on ESPN and click your ESPN → Hub bookmark to update it">Updated ' + ago + '</span>';
+}
+async function redrawLive() {
+  updateBoard();
+  const typing = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if (['gameday', 'leagues', 'startsit', 'waivers'].includes(G.view) && !modalBg.classList.contains('on') && !typing) { G.silent = true; try { await renderers[G.view](); } finally { G.silent = false; } }
+}
+addEventListener('message', e => {
+  const m = e.data;
+  if (!/^https:\/\/([a-z0-9-]+\.)*espn\.com$/i.test(e.origin) || !m || typeof m !== 'object' || !m.fh) return;
+  ESPN_BR.win = e.source; ESPN_BR.origin = e.origin;
+  if (m.fh === 'espn-error') { toast(m.status === '401' || m.status === '403' ? 'ESPN wouldn\'t share that league. Sign in to ESPN in that tab and click the bookmark again.' : 'ESPN error ' + m.status); return; }
+  if (m.fh !== 'espn' || !m.data || !/^\d+$/.test(String(m.leagueId))) return;
+  const lid = String(m.leagueId), season = +m.season || +G.season;
+  try { ST.set('espnsnap_' + lid, { at: Date.now(), data: espnTrim(m.data) }); } catch (x) {}
+  const list = espnSaved(), x = list.find(y => String(y.leagueId) === lid);
+  if (!x) { if (!modalBg.classList.contains('on')) { espnShell(); espnFound(m.data, lid, +m.teamId || 0, season, 'bridge'); } return; }
+  if (x.via !== 'bridge') { x.via = 'bridge'; ST.set('espn', list); }
+  const L = buildEspnLeague(m.data, x); L.via = 'bridge'; L.snapAt = Date.now();
+  const i = G.espnLeagues.findIndex(y => y.id === L.id); if (i >= 0) G.espnLeagues[i] = L; else G.espnLeagues.push(L);
+  G.espnMissing = (G.espnMissing || []).filter(y => String(y.leagueId) !== lid);
+  saveSummaries(); redrawLive();
+});
+// Opened by the bookmark: tell the ESPN tab this page is ready (a few times, in case its script is still loading).
+if (window.opener) [0, 1500, 4000, 9000].forEach(t => setTimeout(() => { if (!G.espnGot) try { window.opener.postMessage({ fh: 'ready', season: +G.season, week: G.week }, '*'); } catch (e) {} }, t));
+addEventListener('message', e => { if (e.data && e.data.fh === 'espn') G.espnGot = true; });
+
+/* The bookmark itself: opens (or reuses) a Fantasy Hub tab and loads the bridge on the ESPN page you're on. */
+const HUB_BASE = new URL('../', location.href).href;
+const BOOKMARK = "javascript:(()=>{const u='" + HUB_BASE + "';window.__fhHub=window.open(u+'football/#espn','fantasyhub');if(window.__fhBridge)return window.__fhBridge();const s=document.createElement('script');s.src=u+'assets/espn-bridge.js?v='+Date.now();document.head.appendChild(s)})()";
+function bridgeHelp() {
+  return '<ol class="bm-steps">'
+    + '<li>Show your bookmarks bar with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>.</li>'
+    + '<li>Drag this button onto the bar: <a class="btn gold bm-link" href="' + esc(BOOKMARK) + '" draggable="true">🏈 ESPN → Hub</a></li>'
+    + '<li>Open your league on <a href="https://fantasy.espn.com/football/" target="_blank" rel="noopener">fantasy.espn.com</a> (signed in), then click the bookmark. A Football HQ tab opens with the league in it.</li>'
+    + '<li>Leave the ESPN tab open and scores stay live. If you close it, Football HQ keeps the last update until you click the bookmark again.</li></ol>'
+    + '<div class="row" style="margin-top:10px"><button class="btn small" type="button" data-bm-copy>Copy bookmark code</button><span class="sub">Can\'t drag? Copy this, then right-click the bookmarks bar → <i>Add page</i>, name it <b>ESPN → Hub</b> and paste the code as the URL.</span></div>'
+    + '<p class="sub" style="margin-top:10px">The bookmark reads your league on ESPN\'s own site with the sign-in you already have there. Your password and ESPN cookies never leave ESPN.</p>';
+}
+document.addEventListener('click', e => {
+  if (e.target.closest('[data-bm-help]')) { e.preventDefault(); espnBridgeModal(); return; }
+  if (e.target.closest('.bm-link')) { e.preventDefault(); toast('Drag this button onto your bookmarks bar'); return; }
+  if (e.target.closest('[data-bm-copy]')) { navigator.clipboard.writeText(BOOKMARK).then(() => toast('Bookmark code copied'), () => toast('Copy blocked: drag the button instead')); }
+});
+function espnShell() {
+  openModal('<div class="modal-head"><div><div class="eyebrow">ESPN league</div><h2>Add from a link</h2></div><button class="xbtn" data-close aria-label="Close">✕</button></div><div class="modal-body"><div id="efOut"></div></div>');
+}
+function espnBridgeModal() {
+  openModal('<div class="modal-head"><div><div class="eyebrow">ESPN league</div><h2>Private ESPN leagues</h2></div><button class="xbtn" data-close aria-label="Close">✕</button></div><div class="modal-body"><p class="sub">ESPN only lets pages on espn.com read a private league, and that rule is ESPN\'s, so no Chrome setting gets around it. This bookmark reads the league on ESPN for you and hands it to Football HQ.</p>' + bridgeHelp() + '</div>');
+}
+function espnFound(d, lid, tid, season, via) {
+  const out = $('#efOut'); if (!out) return;
+  const teams = (d.teams || []).map(t => ({ id: t.id, name: t.name || ((t.location || '') + ' ' + (t.nickname || '')).trim() || 'Team ' + t.id })).sort((a, b) => a.name.localeCompare(b.name));
+  out.innerHTML = '<div class="alert ok"><span class="k">Found</span><div><b>' + esc((d.settings || {}).name || 'ESPN league') + '</b> · ' + teams.length + ' teams' + (via === 'bridge' ? ' · sent from your ESPN tab' : '') + '</div></div>'
+    + '<label class="f" style="margin-top:10px">Which team is yours?<select id="efTeam">' + teams.map(t => '<option value="' + t.id + '"' + (t.id === tid ? ' selected' : '') + '>' + esc(t.name) + '</option>').join('') + '</select></label>'
+    + '<div class="row" style="margin-top:12px"><span class="sp"></span><button class="btn gold" id="efSave">Add league</button></div>';
+  $('#efSave').onclick = async () => {
+    const list = espnSaved().filter(x => String(x.leagueId) !== String(lid)), rec = { leagueId: lid, teamId: +$('#efTeam').value, season, name: (d.settings || {}).name || '', via };
+    list.push(rec); ST.set('espn', list);
+    setSel('espn_' + lid); closeModal(); toast('ESPN league added');
+    if (via === 'bridge') { const L = buildEspnLeague(d, rec); L.via = 'bridge'; L.snapAt = Date.now(); G.espnLeagues = G.espnLeagues.filter(y => y.id !== L.id).concat(L); }
+    else await loadEspn();
+    saveSummaries(); LIVE.last = LIVE.last || Date.now(); scheduleLive(); rerender();
+  };
 }
 const liveLeagues = () => [...G.sleeperLeagues, ...G.espnLeagues];
 function espnForm() {
@@ -237,22 +328,14 @@ function espnForm() {
     const raw = $('#efUrl').value.trim(), lid = ((raw.match(/leagueId=(\d+)/i) || raw.match(/^(\d{3,})$/) || [])[1]), tid = +((raw.match(/teamId=(\d+)/i) || [])[1] || 0), season = +((raw.match(/seasonId=(\d{4})/i) || [])[1] || G.season);
     const out = $('#efOut');
     if (!lid) { out.innerHTML = '<div class="alert q"><span class="k">Link</span><div>That link doesn\'t have a league id in it. Copy the address while you\'re on any page inside your ESPN league.</div></div>'; return; }
+    if (/\/basketball\//i.test(raw)) { out.innerHTML = '<div class="alert q"><span class="k">Basketball</span><div>That\'s an ESPN basketball league. Football HQ reads ESPN football leagues.</div></div>'; return; }
     out.innerHTML = '<div class="spinner"></div>';
     try {
-      const d = await espnFetch(lid, season, G.week);
-      const teams = (d.teams || []).map(t => ({ id: t.id, name: t.name || ((t.location || '') + ' ' + (t.nickname || '')).trim() })).sort((a, b) => a.name.localeCompare(b.name));
-      out.innerHTML = '<div class="alert ok"><span class="k">Found</span><div><b>' + esc((d.settings || {}).name || 'ESPN league') + '</b> · ' + teams.length + ' teams</div></div>'
-        + '<label class="f" style="margin-top:10px">Which team is yours?<select id="efTeam">' + teams.map(t => '<option value="' + t.id + '"' + (t.id === tid ? ' selected' : '') + '>' + esc(t.name) + '</option>').join('') + '</select></label>'
-        + '<div class="row" style="margin-top:12px"><span class="sp"></span><button class="btn gold" id="efSave">Add league</button></div>';
-      $('#efSave').onclick = async () => {
-        const list = espnSaved().filter(x => String(x.leagueId) !== String(lid)); list.push({ leagueId: lid, teamId: +$('#efTeam').value, season, name: (d.settings || {}).name || '' }); ST.set('espn', list);
-        setSel('espn_' + lid); closeModal(); toast('ESPN league added'); await loadEspn(); saveSummaries(); LIVE.last = LIVE.last || Date.now(); scheduleLive(); rerender();
-      };
+      espnFound(await espnFetch(lid, season, G.week), lid, tid, season, 'direct');
     } catch (err) {
-      out.innerHTML = err.code === 'private'
-        ? '<div class="alert q"><span class="k">Private</span><div><b>ESPN says this league is private.</b> Two ways in, and neither needs your password:<ol style="margin:8px 0 0;padding-left:18px;line-height:1.6"><li>Sign in at <a href="https://www.espn.com/fantasy/football/" target="_blank" rel="noopener">espn.com</a> in this same browser, then click Connect again. Your browser sends ESPN your own login. If it still says private, Chrome is blocking ESPN\'s login cookie on other sites: open Chrome Settings → Privacy and security → Third-party cookies → <i>Sites allowed to use third-party cookies</i> → Add <code>[*.]espn.com</code>.</li><li>Or have the commissioner turn on <i>League Manager → Edit basic settings → Make league viewable to public</i>.</li></ol></div></div>'
-        : err.code === 'notfound' ? '<div class="alert out"><span class="k">Not found</span><div>No ' + season + ' ESPN football league with id ' + esc(lid) + '. Check the link.</div></div>'
-        : '<div class="alert out"><span class="k">Error</span><div>Couldn\'t reach ESPN right now. Try again in a minute.</div></div>';
+      out.innerHTML = err.code === 'notfound'
+        ? '<div class="alert out"><span class="k">Not found</span><div>ESPN has no ' + season + ' football league with id ' + esc(lid) + ' that this page can see. If the link is right, the league is private: use the bookmark below.</div></div>' + bridgeHelp()
+        : '<div class="alert q"><span class="k">' + (err.code === 'private' ? 'Private' : 'Blocked') + '</span><div><b>' + (err.code === 'private' ? 'ESPN says this league is private.' : 'ESPN wouldn\'t answer this page.') + '</b> ESPN only lets pages on espn.com read private leagues, so no Chrome setting fixes it. Use this bookmark instead: one-time setup, no password.</div></div>' + bridgeHelp();
     }
   };
 }
@@ -415,6 +498,8 @@ function renderConnect() {
     $('#gdSwitch').onclick = () => { G.user = null; G.sleeperLeagues = []; ST.del('username'); ST.del('summaries'); renderGameday(); updateBoard(); };
     $('#gdManual').onclick = () => manualForm();
     $('#gdEspn').onclick = () => espnForm();
+    const miss = (G.espnMissing || []).map(x => '<div class="alert q" style="margin-bottom:12px"><span class="k">ESPN</span><div><b>' + esc(x.name || 'Your ESPN league') + '</b> needs your ESPN tab. Open it on ESPN and click your <b>ESPN → Hub</b> bookmark. <a href="#" data-bm-help>Get the bookmark</a></div></div>').join('');
+    if (miss) box.insertAdjacentHTML('beforeend', miss);
     return;
   }
   box.innerHTML = `<div class="connect" style="margin-bottom:16px">
@@ -422,7 +507,7 @@ function renderConnect() {
       <p class="sub">Enter your Sleeper username. Football HQ reads your leagues, rosters and matchups from Sleeper's public API. It's read-only and doesn't need a password.</p>
       <form id="cnForm"><label class="vh" for="cnName">Sleeper username</label><input type="text" id="cnName" placeholder="Sleeper username" value="${esc(name)}" autocomplete="username" required><button class="btn gold" type="submit">Load my leagues</button></form>
       <div class="sub" id="cnMsg" style="margin-top:8px"></div></div>
-    <div class="card"><div class="eyebrow">ESPN or other sites</div><h3 style="margin:8px 0 6px">Add an ESPN league from a link</h3><p class="sub">Paste your ESPN league link and it loads live: rosters, matchups, standings and scores. For Yahoo or anything else, add the league by hand.</p><div class="row"><button class="btn gold" id="cnEspn">+ ESPN league (link)</button><button class="btn" id="cnManual">+ Add a league by hand</button></div>
+    <div class="card"><div class="eyebrow">ESPN or other sites</div><h3 style="margin:8px 0 6px">Add an ESPN league from a link</h3><p class="sub">Paste your ESPN league link and it loads live: rosters, matchups, standings and scores. Private league? <a href="#" data-bm-help>Use the ESPN bookmark</a>. For Yahoo or anything else, add the league by hand.</p><div class="row"><button class="btn gold" id="cnEspn">+ ESPN league (link)</button><button class="btn" id="cnManual">+ Add a league by hand</button></div>
       <ul class="sub" style="margin:14px 0 0;padding-left:18px;line-height:1.8"><li>Live scores and win odds for every matchup</li><li>Lineup alerts for byes, injuries and empty slots</li><li>Waiver targets that are actually free in your league</li></ul></div></div>`;
   $('#cnForm').onsubmit = async e => {
     e.preventDefault(); const v = $('#cnName').value.trim(); if (!v) return;
@@ -432,6 +517,8 @@ function renderConnect() {
   };
   $('#cnManual').onclick = () => manualForm();
   $('#cnEspn').onclick = () => espnForm();
+  const miss = (G.espnMissing || []).map(x => '<div class="alert q" style="margin-bottom:12px"><span class="k">ESPN</span><div><b>' + esc(x.name || 'Your ESPN league') + '</b> needs your ESPN tab. Open it on ESPN and click your <b>ESPN → Hub</b> bookmark. <a href="#" data-bm-help>Get the bookmark</a></div></div>').join('');
+  if (miss) box.insertAdjacentHTML('beforeend', miss);
 }
 function wpBar(wp) { const pc = Math.round(clamp(wp, .02, .98) * 100); return `<div class="wp" data-w="${pc}"><i style="width:50%"></i><b style="left:50%"></b></div>`; }
 function animateBars(root) { if (G.silent) { $$('.wp', root).forEach(el => { const i = el.querySelector('i'), b = el.querySelector('b'); i.style.transition = b.style.transition = 'none'; i.style.width = b.style.left = el.dataset.w + '%'; }); return; } requestAnimationFrame(() => setTimeout(() => $$('.wp', root).forEach(el => { const w = el.dataset.w + '%'; el.querySelector('i').style.width = w; el.querySelector('b').style.left = w; }), 60)); }
@@ -598,7 +685,7 @@ function renderLeagues() {
     <div class="card hash"><div class="head"><h3>Week ${w} matchup</h3><span class="sp"></span><a class="btn small" href="${esc(L.siteUrl || '#')}" target="_blank" rel="noopener">Open in ${esc(L.site || 'Sleeper')} ↗</a></div>${h2h}</div>
     <div class="card hash"><div class="head"><h3>Standings</h3><span class="sp"></span>${L.me ? `<span class="tag ${L.me.rank <= L.playoff ? 'good' : 'q'}">You're #${L.me.rank}</span>` : ''}</div>${stand}</div>
     <div class="card hash"><div class="head"><h3>Your roster</h3><span class="sp"></span><a class="btn small" href="#startsit">Optimize →</a></div>${rosterRows(starters, 'Starters')}${rosterRows(bench, 'Bench')}${rosterRows(L.ir, 'Injured reserve')}${rosterRows(L.taxi, 'Taxi squad')}</div>
-    <div class="card hash"><div class="head"><h3>League settings</h3><span class="sp"></span>${L.kind === 'espn' ? '<button class="btn small ghost" id="lgRmEspn">Remove league</button>' : ''}</div><div class="row" style="margin-bottom:10px">${bits}</div><div class="mstat">${info.map(([l, v]) => `<div><span class="l">${esc(l)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    <div class="card hash"><div class="head"><h3>League settings</h3><span class="sp"></span>${L.kind === 'espn' ? espnSync(L) + '<button class="btn small ghost" id="lgRmEspn">Remove league</button>' : ''}</div><div class="row" style="margin-bottom:10px">${bits}</div><div class="mstat">${info.map(([l, v]) => `<div><span class="l">${esc(l)}</span><b>${esc(v)}</b></div>`).join('')}</div>
       <div class="eyebrow" style="margin:16px 0 6px">Lineup</div><div class="row">${L.slots.map(posTag).join(' ')}</div></div>
   </div>`;
   animateBars(body);
@@ -624,7 +711,7 @@ function renderChopLeague(L, body, bits, rosterRows, w) {
     <div class="card hash"><div class="head"><h3>Survivors</h3><span class="sp"></span><span class="tag ${L.myElim ? 'inj' : 'good'}">${L.myElim ? 'You: chopped wk ' + L.myElim : 'You: alive'}</span></div>${surv}
       <div class="sub" style="margin-top:6px">No opponents and no win/loss record here. You just need to avoid the lowest score each week.</div></div>
     <div class="card hash"><div class="head"><h3>Your roster</h3><span class="sp"></span><a class="btn small" href="#startsit">Optimize →</a></div>${rosterRows(starters, 'Starters')}${rosterRows(bench, 'Bench')}${rosterRows(L.ir, 'Injured reserve')}</div>
-    <div class="card hash"><div class="head"><h3>League settings</h3><span class="sp"></span>${L.kind === 'espn' ? '<button class="btn small ghost" id="lgRmEspn">Remove league</button>' : ''}</div><div class="row" style="margin-bottom:10px">${bits}</div><div class="mstat">${info.map(([l, v]) => `<div><span class="l">${esc(l)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    <div class="card hash"><div class="head"><h3>League settings</h3><span class="sp"></span>${L.kind === 'espn' ? espnSync(L) + '<button class="btn small ghost" id="lgRmEspn">Remove league</button>' : ''}</div><div class="row" style="margin-bottom:10px">${bits}</div><div class="mstat">${info.map(([l, v]) => `<div><span class="l">${esc(l)}</span><b>${esc(v)}</b></div>`).join('')}</div>
       <div class="eyebrow" style="margin:16px 0 6px">Lineup</div><div class="row">${L.slots.map(posTag).join(' ')}</div>
       <div class="sub" style="margin-top:10px">Chopped teams' players go straight to waivers, so check the Waivers tab after every chop.</div></div>
   </div>`;
