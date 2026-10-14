@@ -576,6 +576,7 @@ html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gr
       <button role="tab" id="tab-board" aria-controls="v-board" aria-selected="true" tabindex="0" data-v="board" class="on">Big Board</button>
       <button role="tab" id="tab-draft" aria-controls="v-draft" aria-selected="false" tabindex="-1" data-v="draft">Draft Room</button>
       <button role="tab" id="tab-plan" aria-controls="v-plan" aria-selected="false" tabindex="-1" data-v="plan">Pick Plan</button>
+      <button role="tab" id="tab-strategy" aria-controls="v-strategy" aria-selected="false" tabindex="-1" data-v="strategy">Strategy</button>
       <button role="tab" id="tab-gameday" aria-controls="v-gameday" aria-selected="false" tabindex="-1" data-v="gameday">Gameday</button>
       <button role="tab" id="tab-nbass" aria-controls="v-nbass" aria-selected="false" tabindex="-1" data-v="nbass">Start / Sit</button>
       <button role="tab" id="tab-nbawv" aria-controls="v-nbawv" aria-selected="false" tabindex="-1" data-v="nbawv">Waivers</button>
@@ -685,6 +686,8 @@ html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gr
           <div class="askout" id="askOut" aria-live="polite"></div>
         </div>
         <div id="chatAdvice"></div>
+        <div class="chips st-chips" id="dStrat" role="group" aria-label="Draft strategy"></div>
+        <div id="dDuo"></div>
         <div id="dRecs" style="margin-top:10px"></div>
       </div>
       <div class="card" style="margin-top:14px">
@@ -930,6 +933,14 @@ html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gr
     </div>
   </div>
 </section>
+<!-- ================= STRATEGY ================= -->
+<section class="view" id="v-strategy" role="tabpanel" aria-labelledby="tab-strategy">
+  <div class="viewhead"><div><h2>Startup strategy</h2><div class="sub">Pick an approach for the startup. Each card re-runs your board through that strategy and shows who it likes most. Whatever you choose powers the <b>Best for your strategy</b> pick in the Draft Room, right next to the overall best pick.</div></div><span class="spacer"></span><button class="btn primary" data-go="draft">Open Draft Room</button></div>
+  <div class="st-grid" id="stCards"></div>
+  <div class="seclabel"><h3>How each strategy ranks your top 30</h3><span class="sub">green = that strategy likes him 5+ spots more than your overall board, red = 5+ spots less</span></div>
+  <div class="tablewrap" id="stTable" style="max-height:none"></div>
+</section>
+
 <!-- ================= GAMEDAY (in-season, live from Sleeper) ================= -->
 <section class="view" id="v-gameday" role="tabpanel" aria-labelledby="tab-gameday">
   <div class="card ss-hero">
@@ -1154,6 +1165,7 @@ function recompute() {
   CAT.forEach(k => { [...real].sort((a, b) => b[k] - a[k]).forEach((p, i) => { (p.crank || (p.crank = {}))[k] = i + 1; }); });
 
   [...PLAYERS].sort((a, b) => b.lock - a.lock).forEach((p, i) => p.lockRank = i + 1);
+  computeStrategies();
   valuePicks();
   if (!MYORDER || !Array.isArray(MYORDER) || MYORDER.length !== PLAYERS.length) MYORDER = RANKED.map(p => p.id);
   MYORDER.forEach((id, i) => { if (PLAYERS[id]) PLAYERS[id].myRank = i + 1; });
@@ -1375,7 +1387,7 @@ $('#tabs').addEventListener('keydown', e => {
 $('#clockPill').addEventListener('click', () => showView('draft'));
 function renderActive() {
   renderHeader();
-  const fn = ({ board: renderBoard, draft: renderDraft, trade: renderTrade, league: renderLeague, lab: renderLab, compare: renderCompare, lockin: renderLockin, settings: renderSettings, plan: renderPlan, gameday: () => window.NBA && NBA.render('gameday'), nbass: () => window.NBA && NBA.render('nbass'), nbawv: () => window.NBA && NBA.render('nbawv') })[VIEW];
+  const fn = ({ board: renderBoard, draft: renderDraft, trade: renderTrade, league: renderLeague, lab: renderLab, compare: renderCompare, lockin: renderLockin, settings: renderSettings, plan: renderPlan, strategy: renderStrategy, gameday: () => window.NBA && NBA.render('gameday'), nbass: () => window.NBA && NBA.render('nbass'), nbawv: () => window.NBA && NBA.render('nbawv') })[VIEW];
   if (VIEW === 'draft') fn(); else withD(DLIVE, fn);
   if (VIEW === 'board') withD(DLIVE, renderHero);
 }
@@ -1730,6 +1742,72 @@ function draftAlerts(dset) {
   return out.slice(0, 5);
 }
 
+/* ---------------- startup strategies ----------------
+   Each strategy re-scores the same players: Youth and Win-now re-run the projection model with a long or short window,
+   Lock-In ceiling rewards game-to-game variance (you keep the best game), Big-man premium boosts C-eligible players
+   because the lineup starts two centers. Balanced is your board as-is. Scores are scaled so the top player = 100. */
+const STRATS = [
+  { k: 'balanced', name: 'Balanced', emoji: '⚖️', d: 'Take the best player on your board every pick. Your Scoring & Model settings decide the mix of now and later.', favors: 'Whoever your board rates highest', tip: 'Stay flexible early and fill every lineup slot by round 10.' },
+  { k: 'youth', name: 'Youth movement', emoji: '🌱', d: 'Load up on players 24 and under who are still growing. Give up a little in year one to own years two through five.', favors: 'Young risers and high-upside rookies', tip: 'Aim for a roster average age under 24.5 by round 10, and stash rookies on taxi.' },
+  { k: 'win', name: 'Win now', emoji: '🏆', d: 'Grab proven producers, including the 28–32 year olds dynasty drafters let slide, and chase this season\'s title.', favors: 'Proven stat stuffers and discounted veterans', tip: 'Let others reach on youth. Veterans fall in startups, so scoop them up in the middle rounds.' },
+  { k: 'ceiling', name: 'Lock-In ceiling', emoji: '🔒', d: 'Lock-In keeps your best game each week, so streaky scorers with big nights beat steady guys with the same average.', favors: 'Volume scorers with 40-point upside', tip: 'Pair ceiling guys with a few steady bigs so a cold week never sinks you.' },
+  { k: 'bigs', name: 'Big-man premium', emoji: '🗼', d: 'Your lineup starts two centers plus UTIL, and good centers dry up fast. Lock up two strong bigs early.', favors: 'Centers and C-eligible forwards', tip: 'Have two starting-quality C-eligible players by round 6.' }
+];
+const stratKey = () => STRATS.some(x => x.k === S.strategy) ? S.strategy : 'balanced';
+const stratOf = () => STRATS.find(x => x.k === stratKey());
+function computeStrategies() {
+  const keep = { window: S.window, horizon: S.horizon };
+  const run = o => { Object.assign(S, o); const vals = PLAYERS.map(p => evaluate(p, S.lockin).value); Object.assign(S, keep); const mx = Math.max(...vals) || 1; return vals.map(v => 100 * v / mx); };
+  const youth = run({ window: 92, horizon: 6 }), win = run({ window: 5, horizon: 2 }), w = S.expertWeight / 100 * 0.5;
+  PLAYERS.forEach((p, i) => {
+    p.strat = {
+      balanced: p.score,
+      youth: ((1 - w) * youth[i] + w * p.expert) * (p.age <= 23.5 ? 1.05 : p.age >= 29 ? 0.86 : 1),
+      win: (1 - w * 0.4) * win[i] + w * 0.4 * p.expert,   // win-now leans on production, not dynasty consensus
+      ceiling: p.score * (1 + 1.3 * ((p.cv || 0.3) - 0.30)) * (p.pct && p.pct.pts >= 80 ? 1.03 : 1),
+      bigs: p.score * (p.elig.includes('C') ? 1.13 : 1)
+    };
+  });
+  for (const st of STRATS) {
+    const mx = Math.max(...PLAYERS.map(p => p.strat[st.k])) || 1;
+    PLAYERS.forEach(p => { p.strat[st.k] = 100 * p.strat[st.k] / mx; });
+    [...PLAYERS].sort((a, b) => b.strat[st.k] - a.strat[st.k]).forEach((p, i) => { (p.srank || (p.srank = {}))[st.k] = i + 1; });
+  }
+}
+function renderStrategy() {
+  const cur = stratKey(), dset = drafted();
+  $('#stCards').innerHTML = STRATS.map(st => {
+    const top = [...PLAYERS].filter(p => !dset.has(p.id)).sort((a, b) => b.strat[st.k] - a.strat[st.k]).slice(0, 6);
+    return `<div class="card st-card ${st.k === cur ? 'on' : ''}">
+      <div class="row"><span class="st-emoji">${st.emoji}</span><h3 style="margin:0">${esc(st.name)}</h3><span class="spacer"></span>${st.k === cur ? '<span class="pill st-pill">✓ Your strategy</span>' : ''}</div>
+      <div class="sub" style="margin-top:6px">${esc(st.d)}</div>
+      <div class="eyebrow" style="margin:12px 0 6px">Favors: ${esc(st.favors)}</div>
+      <div class="st-top">${top.map((p, i) => { const d = p.rank - p.srank[st.k]; return `<div class="st-row" data-info="${p.id}" role="button" tabindex="0">${photo(p, 'sm')}<span class="st-n">${i + 1}</span><span class="pname" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</span>${st.k !== 'balanced' && d ? `<span class="st-d ${d > 0 ? 'up' : 'dn'}">${d > 0 ? '▲' + d : '▼' + -d}</span>` : ''}</div>`; }).join('')}</div>
+      <div class="mynote" style="margin:12px 0 10px">💡 ${esc(st.tip)}</div>
+      <button class="btn small ${st.k === cur ? 'primary' : ''}" data-st="${st.k}">${st.k === cur ? 'Using this strategy' : 'Use this strategy'}</button></div>`;
+  }).join('');
+  const rows = RANKED.filter(p => !dset.has(p.id)).slice(0, 30), others = STRATS.filter(x => x.k !== 'balanced');
+  const cell = (p, k) => { const r = p.srank[k], d = p.rank - r; return `<td class="r num ${d >= 5 ? 'st-better' : d <= -5 ? 'st-worse' : ''} ${k === cur ? 'st-cur' : ''}">${r}</td>`; };
+  $('#stTable').innerHTML = `<table><thead><tr><th>Player</th><th class="r">Overall</th>${others.map(x => `<th class="r ${x.k === cur ? 'st-cur' : ''}">${esc(x.name)}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map(p => `<tr><td><div class="pcell" data-info="${p.id}" style="cursor:pointer;min-width:200px">${photo(p, 'sm')}<div style="min-width:0"><div class="pname">${esc(p.name)}${eligChips(p)}</div><div class="pmeta">${p.team} · age ${fmt(p.age)}</div></div></div></td><td class="r num">${p.rank}</td>${others.map(x => cell(p, x.k)).join('')}</tr>`).join('')}</tbody></table>`;
+}
+$('#v-strategy').addEventListener('click', e => {
+  const b = e.target.closest('[data-st]'); if (b) { S.strategy = b.dataset.st; saveS(); renderStrategy(); toast(`${stratOf().name} is your draft strategy`); return; }
+  const info = e.target.closest('[data-info]'); if (info) openPlayer(+info.dataset.info);
+});
+$('#v-strategy').addEventListener('keydown', e => { if (e.key !== 'Enter') return; const info = e.target.closest('[data-info]'); if (info) openPlayer(+info.dataset.info); });
+$('#dStrat').addEventListener('click', e => { const b = e.target.closest('[data-st]'); if (!b) return; S.strategy = b.dataset.st; saveS(); renderDraft(); });
+function renderDuo(best, sb, ST, isMine, my) {
+  const box = (c, label, cls) => !c ? '' : `<div class="duo-b ${cls}"><div class="eyebrow">${label}</div>
+    <div class="row" style="flex-wrap:nowrap;margin-top:8px">${photo(c.p)}<div style="flex:1;min-width:0"><div><span class="pname">${esc(c.p.name)}</span>${eligChips(c.p)}</div><div class="pmeta">${c.p.team} · age ${fmt(c.p.age)} · ${fmt(c.p.fp1)} FPPG · rank ${c.p.rank} · ADP ${fmt(c.p.mkt, 1)}</div></div></div>
+    <div style="margin-top:6px">${c.reasons.slice(0, 3).map(([t, k]) => `<span class="reason ${k}">${esc(t)}</span>`).join('')}</div>
+    <div class="row" style="margin-top:8px"><button class="btn small ${isMine ? 'primary' : ''}" data-draft="${c.p.id}">Draft</button><button class="btn small ghost" data-info="${c.p.id}">Info</button></div></div>`;
+  let html = '';
+  if (best && !sb) html = box(best, `Best overall pick · ${rp(my)}`, 'all') + `<div class="duo-b hint"><div class="eyebrow">Best for your strategy</div><p class="sub" style="margin:8px 0">You're on <b>Balanced</b>, so the overall pick is your strategy pick. Choose a strategy above to get a second opinion.</p><button class="btn small" data-go="strategy">Compare strategies</button></div>`;
+  else if (best && sb.p === best.p) html = box(best, `Best overall <i>and</i> best for ${esc(ST.name)} · ${rp(my)}`, 'all both');
+  else if (best) html = box(best, `Best overall pick · ${rp(my)}`, 'all') + box(sb, `${ST.emoji} Best for ${esc(ST.name)}`, 'strat');
+  $('#dDuo').innerHTML = html ? `<div class="duo">${html}</div>` : '';
+}
 function renderDraft() {
   const isMock = D === DMOCK;
   $$('#dMode button').forEach(b => b.classList.toggle('on', b.dataset.m === (isMock ? 'mock' : 'live')));
@@ -1775,12 +1853,14 @@ function renderDraft() {
   $('#dLineup').innerHTML = slots.map((sl, i) => { const p = lm.assign[i]; return `<div class="lslot ${p ? 'full' : 'open'}"><b>${sl}</b>${p ? esc(lastName(p.name)) : 'Open'}</div>`; }).join('');
   // recommendations
   const recEl = $('#dRecs');
-  if (done || !mine.length) { recEl.innerHTML = '<div class="empty-note">No more picks for you.</div>'; $('#dRecSub').textContent = ''; }
+  $('#dStrat').innerHTML = STRATS.map(x => `<button data-st="${x.k}" class="${x.k === stratKey() ? 'on' : ''}" title="${esc(x.d)}">${x.emoji} ${esc(x.name)}</button>`).join('');
+  if (done || !mine.length) { recEl.innerHTML = '<div class="empty-note">No more picks for you.</div>'; $('#dRecSub').textContent = ''; $('#dDuo').innerHTML = ''; }
   else {
     const my = mine[0], nextAt = O.at;
     const bestAvail = RANKED.find(x => !dset.has(x.id));
-    const cands = RANKED.filter(p => !dset.has(p.id) && FLAGS[p.id] !== 'A').slice(0, 45).map(p => {
-      const reasons = []; let s = p.score;
+    const pool = RANKED.filter(p => !dset.has(p.id) && FLAGS[p.id] !== 'A');
+    const candOf = (p, base) => {
+      const reasons = []; let s = base;
       const pr = O.probs.get(p.id);
       if (p === bestAvail) reasons.push(['Best available', 'acc']);
       if (lm.n < slots.length) {
@@ -1803,10 +1883,13 @@ function renderDraft() {
       if (p.cv >= 0.33) reasons.push(['Lock-In booster', '']);
       if (p.age >= 30 && p.pct.fp1 >= 54) reasons.push(['Win-now', '']);
       return { p, s, reasons, gone };
-    }).filter(c => !c.gone).sort((a, b) => b.s - a.s).slice(0, 5);
+    };
+    const cands = pool.slice(0, 45).map(p => candOf(p, p.score)).filter(c => !c.gone).sort((a, b) => b.s - a.s).slice(0, 5);
+    const ST = stratOf(), stratBest = ST.k === 'balanced' ? null : [...pool].sort((a, b) => b.strat[ST.k] - a.strat[ST.k]).slice(0, 45).map(p => candOf(p, p.strat[ST.k] * MAXSCORE / 100)).filter(c => !c.gone).sort((a, b) => b.s - a.s)[0] || null;
     gradePicks(cands, my + 1, RANKED.filter(p => !dset.has(p.id) && FLAGS[p.id] !== 'A').slice(0, 12).map(p => p.score));
     cands.forEach(c => { if (c.adpv >= 3) c.reasons.unshift([`Falls ${Math.round(c.adpv)} past Sleeper ADP`, 'acc']); else if (c.adpv <= -8) c.reasons.push([`Sleeper ADP ${fmt(c.p.mkt, 0)}`, '']); });
     $('#dRecSub').textContent = isMine ? `Graded for your pick now, ${rp(my)}` : `Graded for your next pick, ${rp(my)}`;
+    renderDuo(cands[0] || null, stratBest, ST, isMine, my);
     recEl.innerHTML = cands.map(c => `<div class="rec">
       <div class="pgrade ${gradeCls(c.letter)}" title="Pick grade at #${my + 1}">${c.letter}</div>${photo(c.p)}
       <div style="flex:1;min-width:0"><div><span class="pname">${esc(c.p.name)}</span><span class="team">${c.p.team}</span>${eligChips(c.p)}</div>
