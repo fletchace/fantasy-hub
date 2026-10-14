@@ -984,7 +984,7 @@ function lbCell(id, pts, L, w, side, key) {
   const inj = p.inj && gs === 'pre' ? ` <span class="lb-inj">${esc(/quest/i.test(p.inj) ? 'Q' : String(p.inj).toUpperCase())}</span>` : '';
   return `<div class="lb-p ${side} ${st}" data-pid="${esc(id)}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
     <span class="lb-pos" style="--pc:${POS_COL[p.pos] || '#8a93ad'}">${esc(p.pos)}</span>
-    <span class="lb-who"><span class="lb-n">${esc(lbName(p))}${inj}</span><span class="lb-g ${gs}">${esc(gl)}</span></span>
+    <span class="lb-who"><span class="lb-n"><span class="nf">${esc(p.pos === 'DEF' ? lbName(p) : p.name)}</span><span class="ns">${esc(lbName(p))}</span>${inj}</span><span class="lb-g ${gs}">${esc(gl)}</span></span>
     <span class="lb-s"><b>${f1(pts)}</b><small>${f1(proj)}${st === 'wait' ? '' : `<i class="lb-dv ${pts >= proj ? 'up' : 'dn'}">${pts >= proj ? '+' : '−'}${f1(Math.abs(pts - proj))} ${pts >= proj ? '▲' : '▼'}</i>`}</small></span><i class="lb-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
 }
 const lbPre = (e, L, w) => (e && e.starters || []).reduce((t, id) => t + (id && id !== '0' ? projFor(id, L, w) : 0), 0);
@@ -1004,9 +1004,8 @@ function lbH2H(L, w) {
 }
 function lbChop(L, w) {
   const e = L.mine && L.matchups.find(x => x.roster_id === L.mine.roster_id); if (!e) return '';
-  const c = chopInfo(L), me = c.me || {}, pre = lbPre(e, L, w), half = Math.ceil(L.slots.length / 2);
-  const cell = i => i < L.slots.length ? `<span class="lb-slot">${esc(lbSlot(L.slots[i]))}</span>${lbCell((e.starters || [])[i], (e.starters_points || [])[i] || 0, L, w, 'l', L.id + ':a:' + i)}` : '<span></span><div></div>';
-  const rows = Array.from({ length: half }, (_, k) => `<div class="lb-row two">${cell(k)}${cell(k + half)}</div>`).join('');
+  const c = chopInfo(L), me = c.me || {}, pre = lbPre(e, L, w);
+  const rows = L.slots.map((s, i) => `<div class="lb-row one"><span class="lb-slot">${esc(lbSlot(s))}</span>${lbCell((e.starters || [])[i], (e.starters_points || [])[i] || 0, L, w, 'l', L.id + ':a:' + i)}</div>`).join('');
   const safe = c.survive == null ? null : c.survive;
   return `<section class="lb-card"><div class="lb-lg"><span>${esc(L.name)} · chopped</span><span class="sp"></span>${safe != null ? `<span class="lb-wp ${safe >= .5 ? 'good' : 'bad'}">${Math.round(safe * 100)}% to survive</span>` : ''}</div>
     <div class="lb-head">${lbTeam(L.teamName(L.mine), e.points || 0, me.proj || 0, pre, 'l', L.id + ':A', true)}
@@ -1015,13 +1014,22 @@ function lbChop(L, w) {
 }
 function lbFit() {
   const wrap = $('#lbWrap'), grid = $('#lbGrid'); if (!wrap || !grid || G.view !== 'live') return;
-  grid.classList.remove('compact'); grid.style.overflowY = '';
+  const MODES = ['compact', 'tight', 'short'];
+  grid.classList.remove(...MODES); grid.style.overflowY = '';
   if (innerWidth < 700) { wrap.style.height = ''; grid.style.setProperty('--fs', '15px'); return; } // phones scroll instead
   wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 10) + 'px';
   const extra = document.documentElement.scrollHeight - innerHeight; if (extra > 0) wrap.style.height = Math.max(320, parseFloat(wrap.style.height) - extra) + 'px'; // page padding below the board
-  // Shrink to fit; past 12px drop the game-status line and try again; if it still can't fit, let it scroll rather than clip.
-  const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (grid.scrollHeight <= grid.clientHeight + 1) return true; } return false; };
-  if (!fit(17, 12)) { grid.classList.add('compact'); if (!fit(15, 9)) grid.style.overflowY = 'auto'; }
+  /* Everything must fit the window AND every name must show in full. Shrink the text (scores included) step by step;
+     if that isn't enough, drop the game-status line, then put each projection beside its score, then use short names
+     ("D. Prescott"). If even that can't fit, the board scrolls rather than cutting anything off. */
+  const names = [...grid.querySelectorAll('.lb-n')];
+  const ok = () => grid.scrollHeight <= grid.clientHeight + 1 && names.every(n => n.scrollWidth <= n.clientWidth + 1);
+  const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (ok()) return true; } return false; };
+  for (const [mode, from, to] of [[[], 16, 11], [['compact'], 15, 10], [['compact', 'tight'], 15, 9], [['compact', 'tight', 'short'], 15, 8]]) {
+    grid.classList.remove(...MODES); grid.classList.add(...mode);
+    if (fit(from, to)) return;
+  }
+  grid.style.overflowY = 'auto';
 }
 function renderLive() {
   const body = $('#liveBody'), ls = liveLeagues().filter(L => L.mine && L.matchups && L.matchups.length), w = G.week;

@@ -380,7 +380,7 @@ function blCell(id, pts, L, w, side, key) {
   const pct = proj > 0 ? Math.min(100, pts / proj * 100) : pts > 0 ? 100 : 0, inj = p.inj ? ` <span class="bl-inj">${esc(/quest|dtd|gtd/i.test(p.inj) ? 'DTD' : String(p.inj).toUpperCase())}</span>` : '';
   return `<div class="bl-p ${side} ${st}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
     <span class="bl-pos" style="--pc:${POSC[p.pos[0]] || '#8794a3'}">${esc(p.pos[0] || '?')}</span>
-    <span class="bl-who"><span class="bl-n">${esc(blName(p))}${inj}</span><span class="bl-g ${gs}">${esc(p.team)} · ${esc(gl)}</span></span>
+    <span class="bl-who"><span class="bl-n"><span class="nf">${esc(p.name)}</span><span class="ns">${esc(blName(p))}</span>${inj}</span><span class="bl-g ${gs}">${esc(p.team)} · ${esc(gl)}</span></span>
     <span class="bl-s"><b>${f1(pts)}</b><small>${f1(proj)}${st === 'wait' ? '' : `<i class="bl-dv ${pts >= proj ? 'up' : 'dn'}">${pts >= proj ? '+' : '−'}${f1(Math.abs(pts - proj))} ${pts >= proj ? '▲' : '▼'}</i>`}</small></span><i class="bl-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
 }
 const blPre = (e, L, w) => (e && e.starters || []).reduce((t, id) => t + (id && id !== '0' && !isOut(pl(id).inj) ? lockVal(fppg(id, L.sc), weekGames(pl(id).team, w).total) : 0), 0);
@@ -399,13 +399,22 @@ function blCard(L, w) {
 }
 function blFit() {
   const wrap = q('#blWrap'), grid = q('#blGrid'); if (!wrap || !grid || view !== 'nblive') return;
-  grid.classList.remove('compact'); grid.style.overflowY = '';
+  const MODES = ['compact', 'tight', 'short'];
+  grid.classList.remove(...MODES); grid.style.overflowY = '';
   if (innerWidth < 700) { wrap.style.height = ''; grid.style.setProperty('--fs', '15px'); return; } // phones scroll instead
   wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 10) + 'px';
   const extra = document.documentElement.scrollHeight - innerHeight; if (extra > 0) wrap.style.height = Math.max(320, parseFloat(wrap.style.height) - extra) + 'px'; // page padding below the board
-  // Shrink to fit; past 12px drop the game-status line and try again; if it still can't fit, let it scroll rather than clip.
-  const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (grid.scrollHeight <= grid.clientHeight + 1) return true; } return false; };
-  if (!fit(17, 12)) { grid.classList.add('compact'); if (!fit(15, 9)) grid.style.overflowY = 'auto'; }
+  /* Everything must fit the window AND every name must show in full. Shrink the text (scores included) step by step;
+     if that isn't enough, drop the game-status line, then put each projection beside its score, then use short names
+     ("D. Prescott"). If even that can't fit, the board scrolls rather than cutting anything off. */
+  const names = [...grid.querySelectorAll('.bl-n')];
+  const ok = () => grid.scrollHeight <= grid.clientHeight + 1 && names.every(n => n.scrollWidth <= n.clientWidth + 1);
+  const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (ok()) return true; } return false; };
+  for (const [mode, from, to] of [[[], 16, 11], [['compact'], 15, 10], [['compact', 'tight'], 15, 9], [['compact', 'tight', 'short'], 15, 8]]) {
+    grid.classList.remove(...MODES); grid.classList.add(...mode);
+    if (fit(from, to)) return;
+  }
+  grid.style.overflowY = 'auto';
 }
 function renderLiveNBA() {
   const box = q('#nbLiveBody'), w = N.week;
