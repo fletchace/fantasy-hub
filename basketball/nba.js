@@ -358,6 +358,75 @@ function renderPanel() {
   const r = q('#sbRetry'); if (r) r.onclick = () => { N.err = false; refresh(true).catch(() => { N.err = true; renderPanel(); }); };
 }
 
+/* =================== LIVE BOARD ===================
+   Every NBA matchup on one screen for keeping beside the TV. Under Lock-In each starter's week is one game, so a
+   player's projection is his expected Lock-In score for the week (his best lockable game, given how many games he
+   has). Green = beating it, amber = behind with games left, red = done for the week and short. Text shrinks to fit. */
+const blName = p => (n => n.length > 1 ? n[0][0] + '. ' + n.slice(1).join(' ') : n[0])(String(p.name).split(' '));
+const blDay = d => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' });
+function blGame(p, w) {
+  const g = weekGames(p.team, w);
+  if (!p.team || p.team === 'FA') return ['', 'FA', g];
+  if (!g.total) return ['bye', 'NO GAMES', g];
+  if (g.live) return ['live', `LIVE · ${g.left - 1 > 0 ? g.left - 1 + ' more' : 'last game'}`, g];
+  if (!g.left) return ['fin', `DONE · ${g.total} gm`, g];
+  const nx = N.sched.filter(x => x.week === w && x.status !== 'complete' && (x.home.team === p.team || x.away.team === p.team)).sort((a, b) => a.date < b.date ? -1 : 1)[0];
+  return [g.left < g.total ? 'mid' : 'pre', `${nx ? blDay(nx.date) + ' · ' : ''}${g.left} of ${g.total} left`, g];
+}
+function blCell(id, pts, L, w, side, key) {
+  if (!id || id === '0') return `<div class="bl-p ${side} empty"><span class="bl-who"><span class="bl-n">Empty slot</span></span></div>`;
+  const p = pl(id), [gs, gl, g] = blGame(p, w), proj = isOut(p.inj) ? 0 : lockVal(fppg(id, L.sc), g.total);
+  const st = gs === 'pre' || gs === 'bye' || gs === '' ? 'wait' : pts >= proj ? 'up' : gs === 'fin' ? 'down' : 'behind';
+  const pct = proj > 0 ? Math.min(100, pts / proj * 100) : pts > 0 ? 100 : 0, inj = p.inj ? ` <span class="bl-inj">${esc(/quest|dtd|gtd/i.test(p.inj) ? 'DTD' : String(p.inj).toUpperCase())}</span>` : '';
+  return `<div class="bl-p ${side} ${st}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
+    <span class="bl-pos" style="--pc:${POSC[p.pos[0]] || '#8794a3'}">${esc(p.pos[0] || '?')}</span>
+    <span class="bl-who"><span class="bl-n">${esc(blName(p))}${inj}</span><span class="bl-g ${gs}">${esc(p.team)} · ${esc(gl)}</span></span>
+    <span class="bl-s"><b>${f1(pts)}</b><small>${f1(proj)}</small></span><i class="bl-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
+}
+const blPre = (e, L, w) => (e && e.starters || []).reduce((t, id) => t + (id && id !== '0' && !isOut(pl(id).inj) ? lockVal(fppg(id, L.sc), weekGames(pl(id).team, w).total) : 0), 0);
+function blTeam(name, pts, proj, pre, side, key, me) {
+  return `<div class="bl-tm ${side} ${me ? 'me' : ''}"><div class="bl-tn">${esc(name)}</div><b class="bl-sc" data-k="${esc(key)}" data-v="${pts.toFixed(2)}">${f1(pts)}</b>
+    <div class="bl-pj">proj <b>${f1(proj)}</b> · pre-week ${f1(pre)}</div></div>`;
+}
+function blCard(L, w) {
+  const m = matchupOf(L); if (!m) return '';
+  const a = m.me, b = m.opp, wp = m.wp;
+  const rows = L.slots.map((s, i) => `<div class="bl-row">${blCell((a.starters || [])[i], (a.starters_points || [])[i] || 0, L, w, 'l', L.id + ':a:' + i)}<span class="bl-slot">${esc(s)}</span>${b ? blCell((b.starters || [])[i], (b.starters_points || [])[i] || 0, L, w, 'r', L.id + ':b:' + i) : '<div></div>'}</div>`).join('');
+  return `<section class="bl-card"><div class="bl-lg"><span>${esc(L.name)}</span><span class="sp"></span>${wp != null ? `<span class="bl-wp ${wp >= .5 ? 'good' : 'bad'}">${Math.round(wp * 100)}% to win</span>` : ''}</div>
+    <div class="bl-head">${blTeam(m.myName, m.myPts, m.myProj, blPre(a, L, w), 'l', L.id + ':A', true)}<span class="bl-vs">VS</span>${b ? blTeam(m.oppName, m.oppPts, m.oppProj, blPre(b, L, w), 'r', L.id + ':B', false) : '<div class="bl-tm r"><div class="bl-tn">Bye week</div></div>'}</div>
+    ${wp != null ? `<div class="bl-wpbar"><i style="width:${Math.round(clamp(wp, .02, .98) * 100)}%"></i></div>` : ''}
+    <div class="bl-rows">${rows}</div></section>`;
+}
+function blFit() {
+  const wrap = q('#blWrap'), grid = q('#blGrid'); if (!wrap || !grid || view !== 'nblive') return;
+  if (innerWidth < 700) { wrap.style.height = ''; grid.style.setProperty('--fs', '15px'); return; } // phones scroll instead
+  wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 10) + 'px';
+  let fs = 17; grid.style.setProperty('--fs', fs + 'px');
+  while (grid.scrollHeight > grid.clientHeight + 1 && fs > 8) { fs -= .5; grid.style.setProperty('--fs', fs + 'px'); }
+}
+function renderLiveNBA() {
+  const box = q('#nbLiveBody'), w = N.week;
+  const ls = N.leagues.filter(L => drafted(L) && matchupOf(L));
+  if (!ls.length) {
+    const why = !N.user ? 'Connect Sleeper on the Gameday tab and your matchups show up here.' : !N.leagues.some(drafted) ? 'Your matchups show up here once your startup draft is done and the season tips off on Oct 20.' : N.regular ? 'No matchups this week.' : 'Matchups start when the regular season tips off on Oct 20.';
+    box.innerHTML = `<div class="card ss-empty"><div style="font-size:40px">📺</div><h3>No live matchups yet</h3><p class="sub">${why}</p></div>`; return;
+  }
+  const wg = N.sched.filter(g => g.week === w), live = wg.filter(g => g.status === 'in_game' || g.status === 'in_progress').length, fin = wg.filter(g => g.status === 'complete').length;
+  const before = {}; qa('#blGrid [data-k]').forEach(el => before[el.dataset.k] = +el.dataset.v);
+  const cols = ls.length <= 3 ? ls.length : Math.ceil(ls.length / 2);
+  box.innerHTML = `<div class="bl-top"><b>Week ${w}</b><span class="pill nb-live ${live ? 'on' : ''}">${live ? `● ${live} game${live === 1 ? '' : 's'} live` : 'No games live'}</span><span class="sub">${fin} of ${wg.length} final · score <b class="bl-k up">beating</b> <b class="bl-k behind">behind, games left</b> <b class="bl-k down">done and short</b> · small number = Lock-In projection</span><span class="spacer"></span><span class="sub" id="blAgo"></span>
+      <button class="btn small" id="blRefresh">↻ Refresh</button><button class="btn small" id="blFull">⛶ Full screen</button></div>
+    <div class="bl-wrap" id="blWrap"><div class="bl-grid" id="blGrid" style="--cols:${cols}">${ls.map(L => blCard(L, w)).join('')}</div></div>`;
+  blFit();
+  qa('#blGrid [data-k]').forEach(el => { const b = before[el.dataset.k]; if (b != null && +el.dataset.v > b + .05) { el.classList.add('bump'); if (el.classList.contains('bl-sc') && el.dataset.k.endsWith(':A')) { const r = el.getBoundingClientRect(); popText(r.left + r.width / 2, r.top, '+' + f1(+el.dataset.v - b), '#ff9a57', 26); } } });
+  q('#blRefresh').onclick = () => refresh(true).catch(() => {});
+  q('#blFull').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); };
+}
+let blRT = null;
+addEventListener('resize', () => { clearTimeout(blRT); blRT = setTimeout(blFit, 120); });
+document.addEventListener('fullscreenchange', () => { const b = q('#blFull'); if (b) b.textContent = document.fullscreenElement ? '✕ Exit full screen' : '⛶ Full screen'; setTimeout(blFit, 60); });
+setInterval(() => { const el = q('#blAgo'); if (!el || !N.last) return; const s = Math.round((Date.now() - N.last) / 1000); el.textContent = `updated ${s < 60 ? s + 's' : Math.round(s / 60) + ' min'} ago · auto every ${gamesLive() ? '30s' : '2 min'}`; }, 1000);
+
 /* ---------- loading + live refresh ---------- */
 let booting = null, view = null;
 function liveTag() {
@@ -375,7 +444,7 @@ async function refresh(fresh) {
     N.last = Date.now();
     if (N.sel == null && N.leagues[0]) N.sel = N.leagues[0].id;
     const typing = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
-    if (view === 'gameday' && !typing) renderGameday(true); else if (view === 'nbass' && !typing) renderSS(); else if (view === 'nbawv' && !typing) renderWV(); else if (view === 'sched' && !typing) renderSched();
+    if (view === 'gameday' && !typing) renderGameday(true); else if (view === 'nbass' && !typing) renderSS(); else if (view === 'nbawv' && !typing) renderWV(); else if (view === 'sched' && !typing) renderSched(); else if (view === 'nblive' && !typing) renderLiveNBA();
     loadTips().then(renderPanel); renderPanel();
     for (const L of N.leagues) { const m = matchupOf(L); if (m && before[L.id] != null && m.myPts > before[L.id] + .05) { const el = q(`.nb-card[data-lg="${CSS.escape(L.id)}"] .sc.me`); if (el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); const r = el.getBoundingClientRect(); popText(r.left + r.width / 2, r.top, '+' + f1(m.myPts - before[L.id]), '#ff9a57', 30); } } }
   } finally { N.busy = false; liveTag(); renderPanel(); }
@@ -400,12 +469,13 @@ window.NBA = {
     view = v;
     await boot();
     if (N.err && !N.last) return;
-    if (v === 'gameday') renderGameday(); else if (v === 'nbass') renderSS(); else if (v === 'nbawv') renderWV(); else if (v === 'sched') renderSched();
+    if (v === 'gameday') renderGameday(); else if (v === 'nbass') renderSS(); else if (v === 'nbawv') renderWV(); else if (v === 'sched') renderSched(); else if (v === 'nblive') renderLiveNBA();
   },
-  panel: () => renderPanel()
+  panel: () => renderPanel(),
+  state: N
 };
 // Leaving these tabs slows refreshes down to the scoreboard's pace.
-const NB_VIEWS = ['gameday', 'nbass', 'nbawv', 'sched'];
+const NB_VIEWS = ['gameday', 'nblive', 'nbass', 'nbawv', 'sched'];
 const mo = new MutationObserver(() => { const on = NB_VIEWS.find(v => q('#v-' + v).classList.contains('on')); view = on || null; });
 NB_VIEWS.forEach(v => mo.observe(q('#v-' + v), { attributes: true, attributeFilter: ['class'] }));
 

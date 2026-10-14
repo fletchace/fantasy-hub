@@ -578,6 +578,7 @@ html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gr
       <button role="tab" id="tab-plan" aria-controls="v-plan" aria-selected="false" tabindex="-1" data-v="plan">Pick Plan</button>
       <button role="tab" id="tab-strategy" aria-controls="v-strategy" aria-selected="false" tabindex="-1" data-v="strategy">Strategy</button>
       <button role="tab" id="tab-gameday" aria-controls="v-gameday" aria-selected="false" tabindex="-1" data-v="gameday">Gameday</button>
+      <button role="tab" id="tab-nblive" aria-controls="v-nblive" aria-selected="false" tabindex="-1" data-v="nblive">📺 Live</button>
       <button role="tab" id="tab-nbass" aria-controls="v-nbass" aria-selected="false" tabindex="-1" data-v="nbass">Start / Sit</button>
       <button role="tab" id="tab-nbawv" aria-controls="v-nbawv" aria-selected="false" tabindex="-1" data-v="nbawv">Waivers</button>
       <button role="tab" id="tab-sched" aria-controls="v-sched" aria-selected="false" tabindex="-1" data-v="sched">Schedule</button>
@@ -1016,6 +1017,9 @@ html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gr
   <div class="card"><div class="ss-timeline" id="ssTimeline"></div></div>
 </section>
 
+<!-- ================= LIVE BOARD ================= -->
+<section class="view" id="v-nblive" role="tabpanel" aria-labelledby="tab-nblive"><div id="nbLiveBody"></div></section>
+
 <!-- ================= START / SIT ================= -->
 <section class="view" id="v-nbass" role="tabpanel" aria-labelledby="tab-nbass">
   <div class="viewhead"><div><h2>Start / Sit</h2><div class="sub">The best Lock-In lineup for the week. With Lock-In you keep one game per starter, so a player's week is worth his best <em>lockable</em> game: more games means more chances at a big night. Values use your league's scoring, the player's points per game and his games left this week.</div></div>
@@ -1409,13 +1413,14 @@ function showView(v, quiet) {
   const tb = $(`#tabs button[data-v="${v}"]`); if (tb && tb.scrollIntoView) try { tb.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (x) {}
   const t = $('#toast'); if (t) { clearTimeout(t._h); t.classList.remove('on'); }
   $$('section.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
+  document.body.classList.toggle('lb-on', v === 'nblive');
   if (quiet) return;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: v === 'nblive' ? 'auto' : 'smooth' });
   renderActive();
 }
 
 /* ---------- Draft / In-season slider: one tool set at a time ---------- */
-const MODE_TABS = { draft: ['board', 'draft', 'plan', 'strategy'], season: ['gameday', 'nbass', 'nbawv', 'sched'] };
+const MODE_TABS = { draft: ['board', 'draft', 'plan', 'strategy'], season: ['gameday', 'nblive', 'nbass', 'nbawv', 'sched'] };
 let MODE = (() => { try { return JSON.parse(localStorage.getItem('bbhq_mode')) === 'season' ? 'season' : 'draft'; } catch (e) { return 'draft'; } })();
 function setMode(m, boot) {
   const was = MODE; MODE = m === 'season' ? 'season' : 'draft';
@@ -1426,7 +1431,7 @@ function setMode(m, boot) {
   $('#modeToggle').setAttribute('aria-checked', MODE === 'season' ? 'true' : 'false');
   $$('#modeSw [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === MODE));
   $('#sbTitle').textContent = MODE === 'season' ? 'In-season mode' : 'Draft mode';
-  $('#sbTools').textContent = MODE === 'season' ? 'Gameday · Start/Sit · Waivers · Schedule, plus Trade, League and Lock-In Lab' : 'Big Board · Draft Room · Pick Plan · Strategy, plus Trade, League and Lock-In Lab';
+  $('#sbTools').textContent = MODE === 'season' ? 'Gameday · Live · Start/Sit · Waivers · Schedule, plus Trade, League and Lock-In Lab' : 'Big Board · Draft Room · Pick Plan · Strategy, plus Trade, League and Lock-In Lab';
   if (!boot && was !== MODE) { const t = $('#tabs'); t.classList.remove('mswap'); void t.offsetWidth; t.classList.add('mswap'); }
   if (window.NBA && NBA.panel) NBA.panel();
 }
@@ -1466,7 +1471,7 @@ $('#tabs').addEventListener('keydown', e => {
 $('#clockPill').addEventListener('click', () => showView('draft'));
 function renderActive() {
   renderHeader(); renderSbDraft();
-  const fn = ({ board: renderBoard, draft: renderDraft, trade: renderTrade, league: renderLeague, lab: renderLab, compare: renderCompare, lockin: renderLockin, settings: renderSettings, plan: renderPlan, strategy: renderStrategy, gameday: () => window.NBA && NBA.render('gameday'), nbass: () => window.NBA && NBA.render('nbass'), nbawv: () => window.NBA && NBA.render('nbawv'), sched: () => window.NBA && NBA.render('sched') })[VIEW];
+  const fn = ({ board: renderBoard, draft: renderDraft, trade: renderTrade, league: renderLeague, lab: renderLab, compare: renderCompare, lockin: renderLockin, settings: renderSettings, plan: renderPlan, strategy: renderStrategy, gameday: () => window.NBA && NBA.render('gameday'), nbass: () => window.NBA && NBA.render('nbass'), nbawv: () => window.NBA && NBA.render('nbawv'), sched: () => window.NBA && NBA.render('sched'), nblive: () => window.NBA && NBA.render('nblive') })[VIEW];
   if (VIEW === 'draft') fn(); else withD(DLIVE, fn);
   if (VIEW === 'board') withD(DLIVE, renderHero);
 }
