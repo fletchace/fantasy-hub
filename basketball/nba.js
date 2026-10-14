@@ -217,7 +217,7 @@ function renderSS() {
   box.innerHTML = `<div class="grid nb-ssgrid">
     <div class="card"><div class="row"><h3 style="margin:0">${esc(L.name)} · week ${w}</h3></div><div class="nb-lineup"><div class="nb-hd">Slot</div><div class="nb-hd">Current</div><div></div><div class="nb-hd">Best</div>${rows}</div></div>
     <div class="grid" style="align-content:start;gap:var(--sp-4)">
-      <div class="card" style="text-align:center"><div class="eyebrow">Projected gain</div><div class="nb-gain">+${f1(Math.max(0, gain))}</div><div class="sub">${changes ? `${changes} change${changes === 1 ? '' : 's'} to make in Sleeper` : 'Your lineup is already the best one 👌'}</div>${changes ? `<a class="btn primary" style="margin-top:12px" href="https://sleeper.com/leagues/${esc(L.id)}" target="_blank" rel="noopener">Make the swaps in Sleeper ↗</a>` : ''}</div>
+      <div class="card" style="text-align:center"><div class="eyebrow">Projected gain</div><div class="nb-gain">+${f1(Math.max(0, gain))}</div><div class="sub">${changes ? `${changes} change${changes === 1 ? '' : 's'} to make in Sleeper` : 'Your lineup is already the best one <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-thumbs-up"/></svg>'}</div>${changes ? `<a class="btn primary" style="margin-top:12px" href="https://sleeper.com/leagues/${esc(L.id)}" target="_blank" rel="noopener">Make the swaps in Sleeper ↗</a>` : ''}</div>
       <div class="card"><h3>Bench</h3>${o.bench.length ? `<div class="tablewrap" style="max-height:none;margin-top:8px"><table><tbody>${o.bench.map(e => `<tr><td>${pcell(e.p, `${e.n} gm`)}</td><td class="r num">${f1(e.v)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="sub">Nobody on the bench.</div>'}</div>
     </div></div>`;
 }
@@ -237,7 +237,7 @@ async function renderWV() {
   const drops = L.myIds.filter(id => !(L.starters || []).includes(id) && !L.ir.includes(id) && !L.taxi.includes(id)).map(id => evalP(id, L, w)).sort((a, b) => a.mu - b.mu).slice(0, 5);
   const st = L.lg.settings || {}, left = st.waiver_budget != null && L.mine ? st.waiver_budget - ((L.mine.settings || {}).waiver_budget_used || 0) : null;
   box.innerHTML = `<div class="grid g2">
-    <div class="card"><div class="row"><h3 style="margin:0">🔥 Hot and available</h3><span class="spacer"></span><span class="sub">Sleeper adds, last 24h</span></div>
+    <div class="card"><div class="row"><h3 style="margin:0"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-flame"/></svg> Hot and available</h3><span class="spacer"></span><span class="sub">Sleeper adds, last 24h</span></div>
       ${hot.length ? `<div class="tablewrap" style="max-height:none;margin-top:10px"><table><tbody>${hot.map(e => `<tr><td>${pcell(e.p, `${f1(e.mu)} ppg`)}</td><td class="r"><span class="tag rk">▲${(trend[e.id] || 0).toLocaleString()}</span></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-note">Every trending player is already rostered here.</div>'}</div>
     <div class="card"><div class="row"><h3 style="margin:0">Drop candidates</h3><span class="spacer"></span>${left != null ? `<span class="pill">FAAB left $${left}</span>` : ''}</div>
       ${drops.length ? `<div class="tablewrap" style="max-height:none;margin-top:10px"><table><tbody>${drops.map(e => `<tr><td>${pcell(e.p)}</td><td class="r num">${f1(e.mu)} ppg</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-note">No bench players to judge.</div>'}</div>
@@ -264,8 +264,8 @@ function lockCalc() {
   q('#ssMark').style.left = P(s) + '%'; q('#ssLine').style.left = (k ? P(W) : 0) + '%'; q('#ssLine').style.opacity = k ? 1 : 0;
   const v = q('#ssVerdict'), why = q('#ssWhy');
   if (k === 0) { v.textContent = 'It counts anyway'; v.style.color = 'var(--ink)'; why.textContent = 'That was his last game this week, so it counts automatically whether you lock it or not.'; return; }
-  if (s >= W) { v.textContent = '🔒 Lock it in'; v.style.color = 'var(--good-ink)'; why.innerHTML = `Waiting is worth about <b>${W.toFixed(1)}</b> with ${k} game${k > 1 ? 's' : ''} left. ${s.toFixed(1)} beats that, so bank it.`; }
-  else { v.textContent = '🎲 Roll it'; v.style.color = 'var(--accent-text)'; why.innerHTML = `Waiting is worth about <b>${W.toFixed(1)}</b> with ${k} game${k > 1 ? 's' : ''} left. ${s.toFixed(1)} is below that, so let him play again.`; }
+  if (s >= W) { v.innerHTML = '<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-lock"/></svg> Lock it in'; v.style.color = 'var(--good-ink)'; why.innerHTML = `Waiting is worth about <b>${W.toFixed(1)}</b> with ${k} game${k > 1 ? 's' : ''} left. ${s.toFixed(1)} beats that, so bank it.`; }
+  else { v.innerHTML = '<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-dices"/></svg> Roll it'; v.style.color = 'var(--accent-text)'; why.innerHTML = `Waiting is worth about <b>${W.toFixed(1)}</b> with ${k} game${k > 1 ? 's' : ''} left. ${s.toFixed(1)} is below that, so let him play again.`; }
 }
 ['ssScore', 'ssAvg', 'ssLeft'].forEach(id => q('#' + id).addEventListener('input', lockCalc));
 
@@ -349,8 +349,8 @@ function renderPanel() {
   let html = '';
   if (!name) html = `<form class="row" id="sbCn" style="margin:0;flex:1"><span>Connect Sleeper to fill in your leagues, record and alerts:</span><label class="vh" for="sbName">Sleeper username</label><input type="text" id="sbName" placeholder="Sleeper username" required><button class="btn small primary" type="submit">Load leagues</button><span class="sub" id="sbCnMsg"></span></form>`;
   else if (N.err && !N.user) html = `<span>Couldn't reach Sleeper for <b>${esc(name)}</b>.</span><button class="btn small" type="button" id="sbRetry">Try again</button>`;
-  else if (N.user && mode === 'draft' && N.leagues.some(drafted)) html = `<span>✅ <b>Your startup draft is done.</b> Slide over to In-season for Gameday, Start/Sit, Waivers and Schedule.</span><button class="btn small primary" type="button" data-mode-go="season">Switch to In-season</button>`;
-  else if (N.user && mode === 'season' && N.leagues.length && !N.leagues.some(drafted)) html = `<span>🏀 <b>No rosters yet.</b> Your startup draft hasn't happened, so the draft tools are on the other side of the slider.</span><button class="btn small" type="button" data-mode-go="draft">Back to Draft mode</button>`;
+  else if (N.user && mode === 'draft' && N.leagues.some(drafted)) html = `<span><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-circle-check"/></svg> <b>Your startup draft is done.</b> Slide over to In-season for Gameday, Start/Sit, Waivers and Schedule.</span><button class="btn small primary" type="button" data-mode-go="season">Switch to In-season</button>`;
+  else if (N.user && mode === 'season' && N.leagues.length && !N.leagues.some(drafted)) html = `<span><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-basketball"/></svg> <b>No rosters yet.</b> Your startup draft hasn't happened, so the draft tools are on the other side of the slider.</span><button class="btn small" type="button" data-mode-go="draft">Back to Draft mode</button>`;
   if (note.dataset.h === html) return;
   note.dataset.h = html; note.innerHTML = html; note.hidden = !html;
   const f = q('#sbCn');
@@ -381,7 +381,7 @@ function blCell(id, pts, L, w, side, key) {
   return `<div class="bl-p ${side} ${st}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
     <span class="bl-pos" style="--pc:${POSC[p.pos[0]] || '#8794a3'}">${esc(p.pos[0] || '?')}</span>
     <span class="bl-who"><span class="bl-n">${esc(blName(p))}${inj}</span><span class="bl-g ${gs}">${esc(p.team)} · ${esc(gl)}</span></span>
-    <span class="bl-s"><b>${f1(pts)}</b><small>${f1(proj)}</small></span><i class="bl-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
+    <span class="bl-s"><b>${f1(pts)}</b><small>${f1(proj)}${st === 'wait' ? '' : `<i class="bl-dv ${pts >= proj ? 'up' : 'dn'}">${pts >= proj ? '+' : '−'}${f1(Math.abs(pts - proj))} ${pts >= proj ? '▲' : '▼'}</i>`}</small></span><i class="bl-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
 }
 const blPre = (e, L, w) => (e && e.starters || []).reduce((t, id) => t + (id && id !== '0' && !isOut(pl(id).inj) ? lockVal(fppg(id, L.sc), weekGames(pl(id).team, w).total) : 0), 0);
 function blTeam(name, pts, proj, pre, side, key, me) {
@@ -399,22 +399,25 @@ function blCard(L, w) {
 }
 function blFit() {
   const wrap = q('#blWrap'), grid = q('#blGrid'); if (!wrap || !grid || view !== 'nblive') return;
+  grid.classList.remove('compact'); grid.style.overflowY = '';
   if (innerWidth < 700) { wrap.style.height = ''; grid.style.setProperty('--fs', '15px'); return; } // phones scroll instead
   wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 10) + 'px';
-  let fs = 17; grid.style.setProperty('--fs', fs + 'px');
-  while (grid.scrollHeight > grid.clientHeight + 1 && fs > 8) { fs -= .5; grid.style.setProperty('--fs', fs + 'px'); }
+  const extra = document.documentElement.scrollHeight - innerHeight; if (extra > 0) wrap.style.height = Math.max(320, parseFloat(wrap.style.height) - extra) + 'px'; // page padding below the board
+  // Shrink to fit; past 12px drop the game-status line and try again; if it still can't fit, let it scroll rather than clip.
+  const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (grid.scrollHeight <= grid.clientHeight + 1) return true; } return false; };
+  if (!fit(17, 12)) { grid.classList.add('compact'); if (!fit(15, 9)) grid.style.overflowY = 'auto'; }
 }
 function renderLiveNBA() {
   const box = q('#nbLiveBody'), w = N.week;
   const ls = N.leagues.filter(L => drafted(L) && matchupOf(L));
   if (!ls.length) {
     const why = !N.user ? 'Connect Sleeper on the Gameday tab and your matchups show up here.' : !N.leagues.some(drafted) ? 'Your matchups show up here once your startup draft is done and the season tips off on Oct 20.' : N.regular ? 'No matchups this week.' : 'Matchups start when the regular season tips off on Oct 20.';
-    box.innerHTML = `<div class="card ss-empty"><div style="font-size:40px">📺</div><h3>No live matchups yet</h3><p class="sub">${why}</p></div>`; return;
+    box.innerHTML = `<div class="card ss-empty"><div style="font-size:40px"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-tv"/></svg></div><h3>No live matchups yet</h3><p class="sub">${why}</p></div>`; return;
   }
   const wg = N.sched.filter(g => g.week === w), live = wg.filter(g => g.status === 'in_game' || g.status === 'in_progress').length, fin = wg.filter(g => g.status === 'complete').length;
   const before = {}; qa('#blGrid [data-k]').forEach(el => before[el.dataset.k] = +el.dataset.v);
   const cols = ls.length <= 3 ? ls.length : Math.ceil(ls.length / 2);
-  box.innerHTML = `<div class="bl-top"><b>Week ${w}</b><span class="pill nb-live ${live ? 'on' : ''}">${live ? `● ${live} game${live === 1 ? '' : 's'} live` : 'No games live'}</span><span class="sub">${fin} of ${wg.length} final · score <b class="bl-k up">beating</b> <b class="bl-k behind">behind, games left</b> <b class="bl-k down">done and short</b> · small number = Lock-In projection</span><span class="spacer"></span><span class="sub" id="blAgo"></span>
+  box.innerHTML = `<div class="bl-top"><b>Week ${w}</b><span class="pill nb-live ${live ? 'on' : ''}">${live ? `● ${live} game${live === 1 ? '' : 's'} live` : 'No games live'}</span><span class="sub">${fin} of ${wg.length} final · score <b class="bl-k up">beating</b> <b class="bl-k behind">behind, games left</b> <b class="bl-k down">done and short</b> · small numbers = Lock-In projection and +/− vs it</span><span class="spacer"></span><span class="sub" id="blAgo"></span>
       <button class="btn small" id="blRefresh">↻ Refresh</button><button class="btn small" id="blFull">⛶ Full screen</button></div>
     <div class="bl-wrap" id="blWrap"><div class="bl-grid" id="blGrid" style="--cols:${cols}">${ls.map(L => blCard(L, w)).join('')}</div></div>`;
   blFit();

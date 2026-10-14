@@ -74,7 +74,7 @@ async function renderDynasty() {
   buildBoard();
   $$('#dynFmt button').forEach(b => b.classList.toggle('on', b.dataset.f === DS.fmt));
   $('#dynHz').value = DS.hz; $('#hzLabel').textContent = hzLabel(DS.hz); $('#dynTep').checked = DS.tep;
-  $('#dynSub').textContent = `${liveMsg}. ${BOARD.length} players turned into trade values, then re-ranked for age and your window. ★ marks targets, ⛔ marks players to avoid.`;
+  $('#dynSub').innerHTML = `${liveMsg}. ${BOARD.length} players turned into trade values, then re-ranked for age and your window. ★ marks targets, <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-ban"/></svg> marks players to avoid.`;
   drawKpis(); drawBoardTable(); drawScatter();
 }
 function drawKpis() {
@@ -99,7 +99,7 @@ function drawBoardTable() {
     if (BPOS === 'ALL' && !q && BSHOW === 'all' && p._tier !== lastTier) { html += `<tr class="tier"><td colspan="9">Tier ${p._tier}</td></tr>`; lastTier = p._tier; }
     const d = p._mrank - p._rank, f = FLAGS[p.id];
     html += `<tr data-pid="${esc(p.id)}" style="${f === 'A' ? 'opacity:.45' : ''}"><td class="num" style="font:700 13px var(--font-mono);color:var(--muted)">${p._rank}</td>
-      <td style="white-space:nowrap"><button class="star ${f === 'T' ? 'on' : ''}" data-flag="T" data-id="${esc(p.id)}" aria-label="Target ${esc(p.name)}">★</button><button class="star av ${f === 'A' ? 'on' : ''}" data-flag="A" data-id="${esc(p.id)}" aria-label="Avoid ${esc(p.name)}">⛔</button></td>
+      <td style="white-space:nowrap"><button class="star ${f === 'T' ? 'on' : ''}" data-flag="T" data-id="${esc(p.id)}" aria-label="Target ${esc(p.name)}">★</button><button class="star av ${f === 'A' ? 'on' : ''}" data-flag="A" data-id="${esc(p.id)}" aria-label="Avoid ${esc(p.name)}"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-ban"/></svg></button></td>
       <td>${HQ.pcell(p, '', p.exp === 0 ? ' <span class="tag rk">R</span>' : '')}</td><td class="r">${ageChip(p)}</td><td class="r num">${f1(p._adp)}</td>
       <td class="r num ${d > 0 ? 'delta-up' : d < 0 ? 'delta-dn' : ''}">${d > 0 ? '▲' + d : d < 0 ? '▼' + -d : '–'}</td>
       <td><div class="row" style="flex-wrap:nowrap;gap:8px"><div class="valbar" style="flex:1"><i style="width:${(p._v / maxV * 100).toFixed(1)}%"></i></div><span class="num" style="font:700 12px var(--font-mono);min-width:44px;text-align:right">${p._v.toLocaleString()}</span></div></td>
@@ -274,7 +274,7 @@ async function runCpu() {
   else if (MK && teamAt(MK.picks.length) === MK.slot) { const el = $('#mkOtc'); if (el) { const r = el.getBoundingClientRect(); popText(r.left + r.width / 2, r.top + 30, "YOU'RE UP!", '#facc15', 40); } }
 }
 function drawMock(light) {
-  const body = $('#mockBody'); if (!MK) { body.innerHTML = `<div class="card empty"><div style="font-size:44px">🎯</div><h3 style="margin:8px 0">Set it up and hit start</h3><p class="sub">Practice a startup before your dynasty league drafts next year. The draft board fills live as the computer teams pick.</p></div>`; return; }
+  const body = $('#mockBody'); if (!MK) { body.innerHTML = `<div class="card empty"><div style="font-size:44px"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-target"/></svg></div><h3 style="margin:8px 0">Set it up and hit start</h3><p class="sub">Practice a startup before your dynasty league drafts next year. The draft board fills live as the computer teams pick.</p></div>`; return; }
   const n = MK.picks.length, t = teamAt(n), mine = !MK.done && t === MK.slot;
   const round = Math.floor(n / MK.teams) + 1, inR = n % MK.teams + 1;
   let grid = `<table><thead><tr><th></th>${Array.from({ length: MK.teams }, (_, i) => `<th class="${i === MK.slot ? 'me' : ''}">${i === MK.slot ? 'YOU' : 'Team ' + (i + 1)}</th>`).join('')}</tr></thead><tbody>`;
@@ -384,10 +384,10 @@ function drawAgeSvg() {
   svg.classList.remove('in'); new IntersectionObserver((es, o) => es.forEach(e => { if (e.isIntersecting) { svg.classList.add('in'); o.disconnect(); } }), { threshold: .3 }).observe(svg);
 }
 const STRATS = [
-  { k: 'bal', name: 'Balanced', emoji: '⚖️', hz: 0, d: 'Take the best value every pick. Compete year one while keeping young upside.' },
-  { k: 'youth', name: 'Youth movement', emoji: '🌱', hz: 80, d: 'Load up on 21–24 year olds and future picks, then dominate years 2 to 5.' },
-  { k: 'win', name: 'Win now', emoji: '🏆', hz: -80, d: 'Buy discounted vets for a title push now. Sell aging RBs before they fall off.' },
-  { k: 'qb', name: 'QB-first', emoji: '🎯', hz: 20, fmt: 'sf', d: 'In Superflex, lock up two young franchise QBs. They hold value for a decade.' }];
+  { k: 'bal', name: 'Balanced', emoji: '<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-scale"/></svg>', hz: 0, d: 'Take the best value every pick. Compete year one while keeping young upside.' },
+  { k: 'youth', name: 'Youth movement', emoji: '<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-sprout"/></svg>', hz: 80, d: 'Load up on 21–24 year olds and future picks, then dominate years 2 to 5.' },
+  { k: 'win', name: 'Win now', emoji: '<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-trophy"/></svg>', hz: -80, d: 'Buy discounted vets for a title push now. Sell aging RBs before they fall off.' },
+  { k: 'qb', name: 'QB-first', emoji: '<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-target"/></svg>', hz: 20, fmt: 'sf', d: 'In Superflex, lock up two young franchise QBs. They hold value for a decade.' }];
 function drawStrats() {
   const saved = { ...DS };
   const html = STRATS.map(s => {

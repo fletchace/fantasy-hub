@@ -50,15 +50,20 @@
 .door .go i{display:inline-block;transition:transform .2s}
 .door:hover .go i{transform:translateX(6px)}
 .door .pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.door .pills span{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--chalk-2)}
+.door .pills span{font-size:12px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--chalk-2)}
 @media (max-width:760px){.doors{grid-template-columns:minmax(0,1fr);width:100%;max-width:420px}.stadium .hero-in{padding-top:7vh}}
+.hint .cue{color:var(--chalk);text-decoration:none;font-weight:800;white-space:nowrap}
+.hint .cue .ic{animation:cue 1.6s ease-in-out infinite}
+.hint .cue:hover{color:var(--gold)}
+@keyframes cue{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
+@media (prefers-reduced-motion:reduce){.hint .cue .ic{animation:none}}
 .hint{margin-top:18px;font-size:12.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);opacity:0;animation:fadeup .8s 2.6s forwards}
 .board-strip{position:absolute;left:0;right:0;margin:0 auto;bottom:22px;z-index:3;width:min(1100px,calc(100% - 32px));display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;border-radius:16px;overflow:hidden;background:rgba(225,255,230,.12);border:1px solid var(--line-strong);box-shadow:0 20px 50px -20px #000;opacity:0;animation:fadeup .8s 2.3s forwards}
 .board-strip > div{background:rgba(2,10,5,.86);backdrop-filter:blur(6px);padding:10px 14px;min-width:0}
-.board-strip .l{display:block;font:800 10px/1.2 var(--font-body);letter-spacing:2px;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.board-strip .l{display:block;font:800 12px/1.2 var(--font-body);letter-spacing:2px;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .board-strip b{display:block;margin-top:5px;font:400 clamp(16px,2vw,24px)/1.1 var(--font-jersey);color:var(--gold);text-shadow:0 0 14px rgba(250,204,21,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .board-strip b.o{color:var(--orange);text-shadow:0 0 14px rgba(255,122,46,.45)}
-.board-strip small{display:block;font-size:11px;color:var(--chalk-2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.board-strip small{display:block;font-size:12px;color:var(--chalk-2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:760px){.board-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.stadium .hero-in{padding-bottom:200px}}
 
 /* ticker */
@@ -89,10 +94,10 @@
 .tile.fb:hover{border-color:#a3e635}
 .tile.nba{background:repeating-linear-gradient(90deg,rgba(0,0,0,.12) 0 1px,transparent 1px 30px),linear-gradient(160deg,rgba(150,80,30,.6),rgba(60,25,8,.85));border-color:rgba(255,154,87,.25)}
 .tile.nba:hover{border-color:#ff9a57}
-.tile .ti{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;margin-bottom:10px;background:rgba(0,0,0,.25);font-size:20px}
+.tile .ti{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;margin-bottom:10px;background:rgba(0,0,0,.25);font-size:20px;color:var(--chalk)}
 .tile h3{font-size:20px;text-transform:uppercase;letter-spacing:.8px}
 .tile p{margin:4px 0 0;font-size:13.5px;color:var(--chalk-2);line-height:1.45}
-.tile .lg{font:800 10.5px/1 var(--font-body);letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.tile .lg{font:800 12px/1 var(--font-body);letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 .recap{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
 .lgcard{padding:16px;border-radius:18px;background:var(--surface);border:1px solid var(--line);text-decoration:none;color:var(--chalk);display:block}
 .lgcard .rec{font:400 34px/1 var(--font-jersey);color:var(--gold)}
@@ -140,7 +145,7 @@
         <span class="go">Tip off <i>→</i></span>
       </a>
     </div>
-    <div class="hint">Click anywhere on the field to throw a pass</div>
+    <div class="hint">Click anywhere on the field to throw a pass · <a class="cue" href="#tools">Scroll for every tool <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-chevron-down"/></svg></a></div>
   </div>
   <div class="board-strip" role="group" aria-label="Scoreboard">
     <div><span class="l" id="sbWeekL">NFL</span><b id="sbWeek">WEEK –</b><small id="sbWeekS">Loading schedule…</small></div>
@@ -154,7 +159,7 @@
 
 <main class="wrap">
   <div class="yard reveal"><span>1 0</span></div>
-  <section class="plan">
+  <section class="plan" id="tools">
     <div class="reveal">
       <div class="eyebrow">The gameplan</div>
       <h2 style="font-size:clamp(40px,5vw,64px);text-transform:uppercase;margin:8px 0 10px">Every tool, one huddle</h2>
@@ -171,14 +176,14 @@
       </svg>
     </div>
     <div class="tiles">
-      <a class="tile fb tilt reveal" href="football/index.html#gameday"><div class="lg">Football</div><div class="ti">🏟️</div><h3>Gameday</h3><p>All your leagues' matchups, live scores and win odds in one place.</p></a>
-      <a class="tile fb tilt reveal" href="football/index.html#startsit"><div class="lg">Football</div><div class="ti">🔁</div><h3>Start / Sit</h3><p>Your best lineup for each league's scoring, with injury and bye alerts.</p></a>
-      <a class="tile fb tilt reveal" href="football/index.html#waivers"><div class="lg">Football</div><div class="ti">📡</div><h3>Waiver Radar</h3><p>Trending adds that are actually available in your league.</p></a>
-      <a class="tile fb tilt reveal" href="football/index.html#dynasty"><div class="lg">Dynasty '27</div><div class="ti">👑</div><h3>Dynasty Board</h3><p>Live Sleeper dynasty ADP, re-ranked by age and your win-now vs rebuild window.</p></a>
-      <a class="tile fb tilt reveal" href="football/index.html#trade"><div class="lg">Dynasty '27</div><div class="ti">⚖️</div><h3>Trade Lab</h3><p>Stack players and future picks and see who wins the deal.</p></a>
-      <a class="tile fb tilt reveal" href="football/index.html#mock"><div class="lg">Dynasty '27</div><div class="ti">🎯</div><h3>Mock Startup</h3><p>Practice a full startup draft against the field before next year.</p></a>
-      <a class="tile nba tilt reveal" href="basketball/index.html#board"><div class="lg">Basketball</div><div class="ti">🏀</div><h3>Draft HQ</h3><p>Your big board, draft room, pick plan and Lock-In lab.</p></a>
-      <a class="tile nba tilt reveal" href="basketball/index.html#gameday"><div class="lg">Basketball</div><div class="ti">📺</div><h3>NBA Gameday</h3><p>Live matchups, Lock-In lineups and waiver targets for your NBA leagues.</p></a>
+      <a class="tile fb tilt reveal" href="football/index.html#gameday"><div class="lg">Football</div><div class="ti"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-calendar-check"/></svg></div><h3>Gameday</h3><p>All your leagues' matchups, live scores and win odds in one place.</p></a>
+      <a class="tile fb tilt reveal" href="football/index.html#startsit"><div class="lg">Football</div><div class="ti"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-arrow-left-right"/></svg></div><h3>Start / Sit</h3><p>Your best lineup for each league's scoring, with injury and bye alerts.</p></a>
+      <a class="tile fb tilt reveal" href="football/index.html#waivers"><div class="lg">Football</div><div class="ti"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-radar"/></svg></div><h3>Waiver Radar</h3><p>Trending adds that are actually available in your league.</p></a>
+      <a class="tile fb tilt reveal" href="football/index.html#dynasty"><div class="lg">Dynasty '27</div><div class="ti"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-crown"/></svg></div><h3>Dynasty Board</h3><p>Live Sleeper dynasty ADP, re-ranked by age and your win-now vs rebuild window.</p></a>
+      <a class="tile fb tilt reveal" href="football/index.html#trade"><div class="lg">Dynasty '27</div><div class="ti"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-scale"/></svg></div><h3>Trade Lab</h3><p>Stack players and future picks and see who wins the deal.</p></a>
+      <a class="tile fb tilt reveal" href="football/index.html#mock"><div class="lg">Dynasty '27</div><div class="ti"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-target"/></svg></div><h3>Mock Startup</h3><p>Practice a full startup draft against the field before next year.</p></a>
+      <a class="tile nba tilt reveal" href="basketball/index.html#board"><div class="lg">Basketball</div><div class="ti"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-basketball"/></svg></div><h3>Draft HQ</h3><p>Your big board, draft room, pick plan and Lock-In lab.</p></a>
+      <a class="tile nba tilt reveal" href="basketball/index.html#gameday"><div class="lg">Basketball</div><div class="ti"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-tv"/></svg></div><h3>NBA Gameday</h3><p>Live matchups, Lock-In lineups and waiver targets for your NBA leagues.</p></a>
     </div>
   </section>
 
@@ -190,6 +195,7 @@
 </main>
 <footer class="foot">Built for one manager. Player data comes live from the public <a href="https://docs.sleeper.com/" target="_blank" rel="noopener">Sleeper API</a>; nothing leaves your browser except those read-only requests.</footer>
 
+<script src="assets/icons.js"></script>
 <script src="assets/fx.js"></script>
 <script src="football/nfl-snapshot.js" defer></script>
 <script>
@@ -367,7 +373,7 @@ function drawField() {
 
 /* ---------- flying things ---------- */
 const flyers = [], chips = [], trails = [];
-const CHIPS = ['+28.4 PTS', 'TOUCHDOWN', 'W 142–118', 'WAIVER WIN', 'LOCKED IN', 'SMASH START', 'TRADE ACCEPTED', '+$14 FAAB', '3 TDs', '1ST PLACE', 'BOOM WEEK', 'DOUBLE-DOUBLE', '+12.6 PROJ', 'SLEEPER HIT', 'CLINCHED', '🔥 HEATING UP', 'DYNASTY ASSET', 'TRIPLE-DOUBLE', 'HOME RUN', 'GOAL!', 'BUZZER BEATER', 'WALK-OFF', 'HAT TRICK', 'MVP'];
+const CHIPS = ['+28.4 PTS', 'TOUCHDOWN', 'W 142–118', 'WAIVER WIN', 'LOCKED IN', 'SMASH START', 'TRADE ACCEPTED', '+$14 FAAB', '3 TDs', '1ST PLACE', 'BOOM WEEK', 'DOUBLE-DOUBLE', '+12.6 PROJ', 'SLEEPER HIT', 'CLINCHED', 'HEATING UP', 'DYNASTY ASSET', 'TRIPLE-DOUBLE', 'HOME RUN', 'GOAL!', 'BUZZER BEATER', 'WALK-OFF', 'HAT TRICK', 'MVP'];
 function spawnPass(from, to, opts = {}) {
   const dur = opts.dur || rand(1.3, 2.1);
   flyers.push({ k: 'f', x0: from[0], y0: from[1], x1: to[0], y1: to[1], h: opts.h ?? rand(.18, .4) * H, t: 0, dur, len: opts.len || rand(26, 46), spin: 0, onDone: opts.onDone, big: opts.big });
@@ -492,9 +498,9 @@ async function loadTicker() {
     await new Promise(r => { if (window.NFL_SNAP) r(); else addEventListener('load', r, { once: true }); });
     const S = window.NFL_SNAP, map = {}; if (S) for (const r of S.rows) map[r[0]] = r;
     const nm = id => map[id] ? `<b>${esc(map[id][1])}</b> <span class="pos ${map[id][2]}">${map[id][2]}</span> <span class="team">${map[id][3]}</span>` : `<b>Player ${esc(id)}</b>`;
-    const items = [`<span class="it"><span class="lab">🔥 Trending adds · 24h</span></span>`,
+    const items = [`<span class="it"><span class="lab"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-flame"/></svg> Trending adds · 24h</span></span>`,
       ...adds.map(a => `<span class="it">${nm(a.player_id)} <span class="up">▲ ${a.count.toLocaleString()}</span></span>`),
-      `<span class="it"><span class="lab">🧊 Getting dropped</span></span>`,
+      `<span class="it"><span class="lab"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-snowflake"/></svg> Getting dropped</span></span>`,
       ...drops.map(a => `<span class="it">${nm(a.player_id)} <span class="dn">▼ ${a.count.toLocaleString()}</span></span>`)].join('');
     $('#ticker').innerHTML = items + items;
   } catch (e) { $('#ticker').innerHTML = '<span class="it"><span class="lab">Sleeper trending</span> Unavailable right now. Try again when you are online.</span>'; }

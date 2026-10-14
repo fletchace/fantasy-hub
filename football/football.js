@@ -285,7 +285,7 @@ const BOOKMARK = "javascript:(()=>{const u='" + HUB_BASE + "';window.__fhHub=win
 function bridgeHelp() {
   return '<ol class="bm-steps">'
     + '<li>Show your bookmarks bar with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>.</li>'
-    + '<li>Drag this button onto the bar: <a class="btn gold bm-link" href="' + esc(BOOKMARK) + '" draggable="true">🏈 ESPN → Hub</a></li>'
+    + '<li>Drag this button onto the bar: <a class="btn gold bm-link" href="' + esc(BOOKMARK) + '" draggable="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-football"/></svg> ESPN → Hub</a></li>'
     + '<li>Open your league on <a href="https://fantasy.espn.com/football/" target="_blank" rel="noopener">fantasy.espn.com</a> (signed in), then click the bookmark. A Football HQ tab opens with the league in it.</li>'
     + '<li>Leave the ESPN tab open and scores stay live. If you close it, Football HQ keeps the last update until you click the bookmark again.</li></ol>'
     + '<div class="row" style="margin-top:10px"><button class="btn small" type="button" data-bm-copy>Copy bookmark code</button><span class="sub">Can\'t drag? Copy this, then right-click the bookmarks bar → <i>Add page</i>, name it <b>ESPN → Hub</b> and paste the code as the URL.</span></div>'
@@ -486,7 +486,7 @@ function chips(el, onPick) {
 }
 function needLeagues(el) {
   if (allLeagues().length) return false;
-  el.innerHTML = `<div class="card empty"><div style="font-size:40px">🏈</div><h3 style="margin:8px 0">No leagues yet</h3><p class="sub">Connect your Sleeper username or add a league by hand on the Gameday tab.</p><a class="btn gold" href="#gameday">Go to Gameday</a></div>`;
+  el.innerHTML = `<div class="card empty"><div style="font-size:40px"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-football"/></svg></div><h3 style="margin:8px 0">No leagues yet</h3><p class="sub">Connect your Sleeper username or add a league by hand on the Gameday tab.</p><a class="btn gold" href="#gameday">Go to Gameday</a></div>`;
   return true;
 }
 
@@ -560,12 +560,12 @@ function renderGameday() {
 }
 function chopCard(L, bits) {
   const head = `<div class="row"><div class="lgname">${esc(L.name)}</div><span class="sp"></span>${bits}</div>`;
-  if (L.myElim) return `<div class="card mcard tilt reveal" data-lg="${esc(L.id)}">${head}<div class="chopped-out">🪓 Chopped in week ${L.myElim}</div><p class="sub">You're out of this one. The Leagues tab still shows who's left on the chopping block.</p></div>`;
+  if (L.myElim) return `<div class="card mcard tilt reveal" data-lg="${esc(L.id)}">${head}<div class="chopped-out"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-axe"/></svg> Chopped in week ${L.myElim}</div><p class="sub">You're out of this one. The Leagues tab still shows who's left on the chopping block.</p></div>`;
   const c = chopInfo(L);
   if (!c.me) return `<div class="card mcard tilt reveal" data-lg="${esc(L.id)}">${head}<p class="sub" style="margin-top:14px">No scores yet this week.</p></div>`;
   const safe = c.cushion == null || c.cushion >= 0;
   return `<div class="card mcard chop tilt reveal" data-lg="${esc(L.id)}">${head}
-    <div class="vs"><div class="side me"><div class="tm">${esc(c.me.name)}</div><div class="sc num">${f1(c.me.pts)}</div><div class="pj">proj ${f1(c.me.proj)} · #${c.me.rank} of ${c.alive}</div></div><div class="mid" title="Lowest score is eliminated">🪓</div>
+    <div class="vs"><div class="side me"><div class="tm">${esc(c.me.name)}</div><div class="sc num">${f1(c.me.pts)}</div><div class="pj">proj ${f1(c.me.proj)} · #${c.me.rank} of ${c.alive}</div></div><div class="mid" title="Lowest score is eliminated"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-axe"/></svg></div>
     <div class="side r"><div class="tm">Chopping block</div><div class="sc num low">${c.low ? f1(c.low.proj) : '–'}</div><div class="pj">${c.low ? (safe ? 'lowest: ' : 'next-lowest: ') + esc(c.low.name) : ''}</div></div></div>
     ${c.survive != null ? wpBar(c.survive) : ''}<div class="row" style="margin-top:8px">${c.survive != null ? `<b style="font-family:var(--font-jersey);color:${c.survive >= .75 ? 'var(--lime)' : c.survive >= .4 ? '#fde68a' : '#fda4af'}">${Math.round(c.survive * 100)}%</b><span class="sub">to survive</span>` : ''}<span class="sp"></span>
     <span class="tag ${safe ? 'good' : 'inj'}">${c.cushion == null ? '' : (safe ? '+' : '−') + f1(Math.abs(c.cushion)) + (safe ? ' cushion' : ' short')}</span><span class="sub">${c.alive} of ${L.teams} left</span></div></div>`;
@@ -695,10 +695,10 @@ function renderLeagues() {
 
 function renderChopLeague(L, body, bits, rosterRows, w) {
   const c = chopInfo(L), st = L.lg.settings || {};
-  const block = c.rows.length ? `<div class="tablewrap"><table><thead><tr><th>#</th><th>Team</th><th class="r">Pts</th><th class="r">Proj</th><th class="r">Left</th></tr></thead><tbody>${c.rows.map((x, i) => `<tr class="${x.me ? 'me' : ''} ${i === c.rows.length - 1 ? 'danger' : ''}"><td class="num">${x.rank}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${i === c.rows.length - 1 ? '🪓 ' : ''}${esc(x.name)}</td><td class="r num">${f1(x.pts)}</td><td class="r num">${f1(x.proj)}</td><td class="r num">${x.rem ? Math.ceil(x.rem) : '✓'}</td></tr>`).join('')}</tbody></table></div>
+  const block = c.rows.length ? `<div class="tablewrap"><table><thead><tr><th>#</th><th>Team</th><th class="r">Pts</th><th class="r">Proj</th><th class="r">Left</th></tr></thead><tbody>${c.rows.map((x, i) => `<tr class="${x.me ? 'me' : ''} ${i === c.rows.length - 1 ? 'danger' : ''}"><td class="num">${x.rank}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${i === c.rows.length - 1 ? '<svg class="ic" aria-hidden="true" focusable="false"><use href="#i-axe"/></svg> ' : ''}${esc(x.name)}</td><td class="r num">${f1(x.pts)}</td><td class="r num">${f1(x.proj)}</td><td class="r num">${x.rem ? Math.ceil(x.rem) : '✓'}</td></tr>`).join('')}</tbody></table></div>
     <div class="sub" style="margin-top:6px">Sorted by projected final score. The bottom team gets chopped. "Left" is how many starters haven't finished.</div>` : '<div class="empty">No scores yet this week.</div>';
-  const top = L.myElim ? `<div class="chopped-out">🪓 You were chopped in week ${L.myElim}</div>`
-    : c.me ? `<div class="vs"><div class="side me"><div class="tm">${esc(c.me.name)}</div><div class="sc">${f1(c.me.pts)}</div><div class="pj">proj ${f1(c.me.proj)} · #${c.me.rank} of ${c.alive}</div></div><div class="mid">🪓</div><div class="side r"><div class="tm">Survival odds</div><div class="sc" style="color:${c.survive >= .75 ? 'var(--lime)' : c.survive >= .4 ? '#fde68a' : '#fda4af'}">${c.survive != null ? Math.round(c.survive * 100) + '%' : '–'}</div><div class="pj">${c.cushion != null ? (c.cushion >= 0 ? f1(c.cushion) + ' above' : f1(-c.cushion) + ' below') + ' the next-lowest' : ''}</div></div></div>${c.survive != null ? wpBar(c.survive) : ''}` : '';
+  const top = L.myElim ? `<div class="chopped-out"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-axe"/></svg> You were chopped in week ${L.myElim}</div>`
+    : c.me ? `<div class="vs"><div class="side me"><div class="tm">${esc(c.me.name)}</div><div class="sc">${f1(c.me.pts)}</div><div class="pj">proj ${f1(c.me.proj)} · #${c.me.rank} of ${c.alive}</div></div><div class="mid"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-axe"/></svg></div><div class="side r"><div class="tm">Survival odds</div><div class="sc" style="color:${c.survive >= .75 ? 'var(--lime)' : c.survive >= .4 ? '#fde68a' : '#fda4af'}">${c.survive != null ? Math.round(c.survive * 100) + '%' : '–'}</div><div class="pj">${c.cushion != null ? (c.cushion >= 0 ? f1(c.cushion) + ' above' : f1(-c.cushion) + ' below') + ' the next-lowest' : ''}</div></div></div>${c.survive != null ? wpBar(c.survive) : ''}` : '';
   const survivors = L.standings.filter(s => !s.elim), outs = L.standings.filter(s => s.elim);
   const surv = `<div class="tablewrap"><table><thead><tr><th>#</th><th>Team</th><th class="r">Total pts</th><th class="r">Status</th></tr></thead><tbody>
     ${survivors.map((s, i) => `<tr class="${s.me ? 'me' : ''}"><td class="num">${i + 1}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</td><td class="r num">${f1(s.pf)}</td><td class="r"><span class="tag good">Alive</span></td></tr>`).join('')}
@@ -736,7 +736,7 @@ async function renderStartSit() {
   const curSet = new Set(hasCur ? o.cur.filter(Boolean).map(e => e.id) : []);
   const changes = hasCur ? o.lineup.filter(e => e && !curSet.has(e.id)).length : 0;
   const gain = hasCur ? o.best - o.now : null;
-  const cellHtml = (e, cls = '') => e ? `<div class="cell ${cls}" data-pid="${esc(e.id)}" style="cursor:pointer">${ph(e.p)}<b>${esc(e.p.name)}${e.locked && w === G.week ? ' 🔒' : ''}</b>${e.flag ? `<span class="tag ${e.flag === 'BYE' ? 'bye' : e.flag === 'Q' ? 'q' : e.flag === 'FINAL' || e.flag === 'LIVE' ? 'good' : 'inj'}">${esc(e.flag)}</span>` : ''}<span class="v">${f1(e.v)}</span></div>` : `<div class="cell bad"><span class="sub">Empty</span></div>`;
+  const cellHtml = (e, cls = '') => e ? `<div class="cell ${cls}" data-pid="${esc(e.id)}" style="cursor:pointer">${ph(e.p)}<b>${esc(e.p.name)}${e.locked && w === G.week ? ' <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-lock"/></svg>' : ''}</b>${e.flag ? `<span class="tag ${e.flag === 'BYE' ? 'bye' : e.flag === 'Q' ? 'q' : e.flag === 'FINAL' || e.flag === 'LIVE' ? 'good' : 'inj'}">${esc(e.flag)}</span>` : ''}<span class="v">${f1(e.v)}</span></div>` : `<div class="cell bad"><span class="sub">Empty</span></div>`;
   const rows = L.slots.map((s, i) => {
     const b = o.lineup[i], c = hasCur ? o.cur[i] : null, chg = hasCur && b && (!c || c.id !== b.id);
     return `<div>${posTag(s)}</div>${hasCur ? cellHtml(c, c && !c.actual && (c.flag === 'BYE' || c.flag === 'OUT') ? 'bad' : '') : '<div class="cell"><span class="sub">—</span></div>'}<div class="arr ${chg ? 'go' : ''}">${chg ? '→' : '='}</div>${cellHtml(b, chg ? 'chg' : '')}`;
@@ -746,7 +746,7 @@ async function renderStartSit() {
       <div class="lineup"><div class="hd">Slot</div><div class="hd">${hasCur ? 'Current' : ''}</div><div></div><div class="hd">Best</div>${rows}</div></div>
     <div class="grid" style="align-content:start;gap:16px">
       <div class="card" style="text-align:center"><div class="eyebrow">${hasCur ? 'Projected gain' : 'Best lineup projects'}</div><div class="bigdelta" id="ssBig">0.0</div>
-        <div class="sub">${hasCur ? (changes ? `${changes} change${changes === 1 ? '' : 's'} to make in ${esc(L.site || 'Sleeper')}` : 'Your lineup is already optimal 👌') : `${esc(L.platform || 'Manual')} league · set it by hand`}</div>
+        <div class="sub">${hasCur ? (changes ? `${changes} change${changes === 1 ? '' : 's'} to make in ${esc(L.site || 'Sleeper')}` : 'Your lineup is already optimal <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-thumbs-up"/></svg>') : `${esc(L.platform || 'Manual')} league · set it by hand`}</div>
         ${hasCur && changes ? `<a class="btn gold" style="margin-top:12px" href="${esc(L.siteUrl || '#')}" target="_blank" rel="noopener">Make the swaps in ${esc(L.site || 'Sleeper')} ↗</a>` : ''}</div>
       <div class="card hash"><div class="head"><h3>Bench</h3></div>${o.bench.length ? o.bench.map(e => `<div class="slot"><span>${posTag(e.p.pos)}</span>${pcell(e.p, e.opp.opp ? `${e.opp.home ? 'vs' : '@'} ${esc(e.opp.opp)}` : e.flag === 'BYE' ? '<span class="tag bye">BYE</span>' : '')}<div class="pts">${f1(e.v)}<small>proj</small></div></div>`).join('') : '<div class="sub">Nobody on the bench.</div>'}</div>
     </div></div>`;
@@ -797,7 +797,7 @@ async function renderWaivers() {
       const mu = await sleeper(`/v1/league/${L.id}/matchups/${lw}`).catch(() => []), e = mu.find(m => m.roster_id === dead.roster_id);
       const freed = ((e && e.players) || []).filter(id => !taken.has(id) && P[id]).map(id => ({ e: evalPlayer(id, L, w), nxt: projFor(id, L, w + 1) })).sort((a, b) => (b.e.raw + b.nxt) - (a.e.raw + a.nxt));
       const st = L.lg.settings || {}, left = st.waiver_budget != null && L.mine ? st.waiver_budget - ((L.mine.settings || {}).waiver_budget_used || 0) : null;
-      chopHtml = `<div class="card hash chopwire" style="margin-bottom:16px"><div class="head"><h3>🪓 Just chopped: ${esc(L.teamName(dead))}</h3><span class="sp"></span><span class="sub">week ${lw}${left != null ? ` · you have $${left} of $${st.waiver_budget} FAAB` : ''}</span></div>
+      chopHtml = `<div class="card hash chopwire" style="margin-bottom:16px"><div class="head"><h3><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-axe"/></svg> Just chopped: ${esc(L.teamName(dead))}</h3><span class="sp"></span><span class="sub">week ${lw}${left != null ? ` · you have $${left} of $${st.waiver_budget} FAAB` : ''}</span></div>
         <div class="sub" style="margin-bottom:8px">Their whole roster went to waivers. These are still unclaimed, best first by the next two weeks' projections.</div>
         ${freed.length ? `<div class="tablewrap"><table><thead><tr><th>Player</th><th class="r">Wk ${w} proj</th><th class="r">Wk ${w + 1} proj</th></tr></thead><tbody>${freed.map(x => `<tr><td>${pcell(x.e.p)}</td><td class="r num">${f1(x.e.raw)}</td><td class="r num">${f1(x.nxt)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Every one of their players has already been claimed.</div>'}</div>`;
     }
@@ -805,7 +805,7 @@ async function renderWaivers() {
   const drops = L.myIds.filter(id => !(L.starters || []).includes(id) && !L.ir.includes(id) && !L.taxi.includes(id))
     .map(id => ({ e: evalPlayer(id, L, w), g: ppg(id, L), nxt: projFor(id, L, w + 1) })).sort((a, b) => ((a.g || 0) + a.nxt) - ((b.g || 0) + b.nxt)).slice(0, 5);
   body.innerHTML = chopHtml + `<div class="grid g2">
-    <div class="card hash"><div class="head"><h3>🔥 Hot and available</h3><span class="sp"></span><span class="sub">Sleeper adds, last 24h</span></div>
+    <div class="card hash"><div class="head"><h3><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-flame"/></svg> Hot and available</h3><span class="sp"></span><span class="sub">Sleeper adds, last 24h</span></div>
       ${hot.length ? hot.map(a => { const p = pl(a.player_id); return `<div class="row" style="padding:7px 0;border-bottom:1px dashed var(--line);flex-wrap:nowrap"><div style="flex:1;min-width:0">${pcell(p, `<span class="sub">${f1(projFor(p.id, L, w))} proj</span>`)}</div><span style="font:700 12px var(--font-mono);color:var(--lime)">▲${a.count.toLocaleString()}</span></div>`; }).join('') : '<div class="empty">Every trending player is already rostered here.</div>'}
       ${L.kind === 'manual' ? '<div class="sub" style="margin-top:8px">Manual league: only your roster is excluded, so double-check availability on your site.</div>' : ''}</div>
     <div class="card hash"><div class="head"><h3>Drop candidates</h3><span class="sp"></span><span class="sub">your weakest bench spots</span></div>
@@ -985,7 +985,7 @@ function lbCell(id, pts, L, w, side, key) {
   return `<div class="lb-p ${side} ${st}" data-pid="${esc(id)}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
     <span class="lb-pos" style="--pc:${POS_COL[p.pos] || '#8a93ad'}">${esc(p.pos)}</span>
     <span class="lb-who"><span class="lb-n">${esc(lbName(p))}${inj}</span><span class="lb-g ${gs}">${esc(gl)}</span></span>
-    <span class="lb-s"><b>${f1(pts)}</b><small>${f1(proj)}</small></span><i class="lb-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
+    <span class="lb-s"><b>${f1(pts)}</b><small>${f1(proj)}${st === 'wait' ? '' : `<i class="lb-dv ${pts >= proj ? 'up' : 'dn'}">${pts >= proj ? '+' : '−'}${f1(Math.abs(pts - proj))} ${pts >= proj ? '▲' : '▼'}</i>`}</small></span><i class="lb-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
 }
 const lbPre = (e, L, w) => (e && e.starters || []).reduce((t, id) => t + (id && id !== '0' ? projFor(id, L, w) : 0), 0);
 const lbSlot = s => SLOT_LBL[s] || s;
@@ -1015,18 +1015,21 @@ function lbChop(L, w) {
 }
 function lbFit() {
   const wrap = $('#lbWrap'), grid = $('#lbGrid'); if (!wrap || !grid || G.view !== 'live') return;
+  grid.classList.remove('compact'); grid.style.overflowY = '';
   if (innerWidth < 700) { wrap.style.height = ''; grid.style.setProperty('--fs', '15px'); return; } // phones scroll instead
-  wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - window.scrollY - 10) + 'px';
-  let fs = 17; grid.style.setProperty('--fs', fs + 'px');
-  while (grid.scrollHeight > grid.clientHeight + 1 && fs > 8) { fs -= .5; grid.style.setProperty('--fs', fs + 'px'); }
+  wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 10) + 'px';
+  const extra = document.documentElement.scrollHeight - innerHeight; if (extra > 0) wrap.style.height = Math.max(320, parseFloat(wrap.style.height) - extra) + 'px'; // page padding below the board
+  // Shrink to fit; past 12px drop the game-status line and try again; if it still can't fit, let it scroll rather than clip.
+  const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (grid.scrollHeight <= grid.clientHeight + 1) return true; } return false; };
+  if (!fit(17, 12)) { grid.classList.add('compact'); if (!fit(15, 9)) grid.style.overflowY = 'auto'; }
 }
 function renderLive() {
   const body = $('#liveBody'), ls = liveLeagues().filter(L => L.mine && L.matchups && L.matchups.length), w = G.week;
-  if (!ls.length) { body.innerHTML = `<div class="card empty"><div style="font-size:40px">📺</div><h3 style="margin:8px 0">No live matchups yet</h3><p class="sub">Connect your Sleeper username (or add an ESPN league) on the Gameday tab and your matchups show up here.</p><a class="btn gold" href="#gameday">Go to Gameday</a></div>`; return; }
+  if (!ls.length) { body.innerHTML = `<div class="card empty"><div style="font-size:40px"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-tv"/></svg></div><h3 style="margin:8px 0">No live matchups yet</h3><p class="sub">Connect your Sleeper username (or add an ESPN league) on the Gameday tab and your matchups show up here.</p><a class="btn gold" href="#gameday">Go to Gameday</a></div>`; return; }
   const wg = G.sched.filter(g => g.week === w), live = wg.filter(g => g.status === 'in_game' || g.status === 'in_progress').length, fin = wg.filter(g => g.status === 'complete').length;
   const before = {}; $$('#lbGrid [data-k]').forEach(el => before[el.dataset.k] = +el.dataset.v);
   const cols = ls.length <= 3 ? ls.length : Math.ceil(ls.length / 2);
-  body.innerHTML = `<div class="lb-top"><b>Week ${w}</b><span class="tag ${live ? 'good live-dot' : ''}">${live ? `● ${live} game${live === 1 ? '' : 's'} live` : 'No games live'}</span><span class="sub">${fin} final · score <b class="lb-k up">beating</b> <b class="lb-k behind">behind, still playing</b> <b class="lb-k down">finished short</b> · small number = projection</span><span class="sp"></span><span class="sub" id="lbAgo"></span>
+  body.innerHTML = `<div class="lb-top"><b>Week ${w}</b><span class="tag ${live ? 'good live-dot' : ''}">${live ? `● ${live} game${live === 1 ? '' : 's'} live` : 'No games live'}</span><span class="sub">${fin} final · score <b class="lb-k up">beating</b> <b class="lb-k behind">behind, still playing</b> <b class="lb-k down">finished short</b> · small numbers = projection and +/− vs it</span><span class="sp"></span><span class="sub" id="lbAgo"></span>
       <button class="btn small" id="lbRefresh">↻ Refresh</button><button class="btn small" id="lbFull">⛶ Full screen</button></div>
     <div class="lb-wrap" id="lbWrap"><div class="lb-grid" id="lbGrid" style="--cols:${cols}">${ls.map(L => L.chopped ? lbChop(L, w) : lbH2H(L, w)).join('')}</div></div>`;
   lbFit();

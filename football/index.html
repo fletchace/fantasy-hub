@@ -60,16 +60,16 @@ tr.danger td:first-child{box-shadow:inset 3px 0 0 var(--flag)}
 .slot{display:grid;grid-template-columns:62px minmax(0,1fr) 70px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
 .slot:last-child{border-bottom:0}
 .slot .pts{text-align:right;font:400 17px/1 var(--font-jersey)}
-.slot .pts small{display:block;font:600 11px/1.4 var(--font-body);color:var(--muted)}
+.slot .pts small{display:block;font:600 12px/1.4 var(--font-body);color:var(--muted)}
 .h2h{display:grid;grid-template-columns:minmax(0,1fr) 54px minmax(0,1fr);gap:4px 8px;align-items:center}
-.h2h .c{font:800 11px/1 var(--font-body);color:var(--muted);text-align:center;letter-spacing:.8px}
+.h2h .c{font:800 12px/1 var(--font-body);color:var(--muted);text-align:center;letter-spacing:.8px}
 .h2h .p{display:flex;align-items:center;gap:8px;min-width:0;padding:5px 0;border-bottom:1px dashed var(--line)}
 .h2h .p.r{flex-direction:row-reverse;text-align:right}
 .h2h .p b{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .h2h .p span.v{margin-left:auto;font:400 15px/1 var(--font-jersey)}
 .h2h .p.r span.v{margin-left:0;margin-right:auto}
 .lineup{display:grid;grid-template-columns:62px minmax(0,1fr) 34px minmax(0,1fr);gap:8px;align-items:center}
-.lineup .hd{font:800 11px/1 var(--font-body);letter-spacing:1.2px;color:var(--muted);text-transform:uppercase;padding:4px 0}
+.lineup .hd{font:800 12px/1 var(--font-body);letter-spacing:1.2px;color:var(--muted);text-transform:uppercase;padding:4px 0}
 .lineup .cell{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.2);border:1px solid var(--line)}
 .lineup .cell.chg{border-color:var(--lime);background:rgba(163,230,53,.09);box-shadow:0 0 18px -8px var(--lime)}
 .lineup .cell.bad{border-color:rgba(244,63,94,.6);background:rgba(244,63,94,.08)}
@@ -98,7 +98,7 @@ tr.danger td:first-child{box-shadow:inset 3px 0 0 var(--flag)}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
 @media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .kpi{padding:12px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--line);min-width:0}
-.kpi .l{font:800 10.5px/1.2 var(--font-body);letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
+.kpi .l{font:800 12px/1.2 var(--font-body);letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
 .kpi .v{font:400 28px/1.15 var(--font-jersey);color:var(--chalk);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kpi .s{font-size:12.5px;color:var(--chalk-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .valbar{position:relative;height:8px;min-width:90px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
@@ -147,7 +147,7 @@ tr.danger td:first-child{box-shadow:inset 3px 0 0 var(--flag)}
 .dboard tbody th{position:sticky;left:0;z-index:1;background:var(--thead);min-width:40px;text-align:center;font:700 12px var(--font-mono);color:var(--muted)}
 .dcell{border-radius:8px;padding:4px 6px;min-height:38px;line-height:1.2;border-left:3px solid var(--pc,transparent);background:color-mix(in srgb,var(--pc,#000) 16%,transparent)}
 .dcell b{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis}
-.dcell small{color:var(--chalk-2);font-size:10.5px}
+.dcell small{color:var(--chalk-2);font-size:12px}
 .dcell.now{outline:2px dashed var(--gold);outline-offset:-2px;background:rgba(250,204,21,.08)}
 .dcell.fresh{animation:land .6s cubic-bezier(.2,1.5,.4,1)}
 @keyframes land{from{transform:scale(1.6);opacity:0}to{transform:none;opacity:1}}
@@ -171,12 +171,13 @@ tr.danger td:first-child{box-shadow:inset 3px 0 0 var(--flag)}
 .tier-pill{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;font:400 16px/1 var(--font-jersey);background:rgba(250,204,21,.14);color:var(--gold)}
 .mstat{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:12px}
 .mstat div{padding:9px 11px;border-radius:12px;background:rgba(0,0,0,.22);border:1px solid var(--line)}
-.mstat .l{display:block;font:800 10px/1.2 var(--font-body);letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
+.mstat .l{display:block;font:800 12px/1.2 var(--font-body);letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
 .mstat b{display:block;font:400 19px/1.2 var(--font-jersey);margin-top:3px}
 /* Live board: every matchup on one screen, sized in em so lbFit() can shrink it to the window */
 body.lb-on .phero,body.lb-on .foot{display:none}
 body.lb-on main.wrap{max-width:none}
-body.lb-on .tabs{margin-top:12px;margin-bottom:10px}
+body.lb-on .tabs{margin-top:0;margin-bottom:10px}
+body.lb-on main.wrap{padding-top:12px}
 :fullscreen body.lb-on .topnav,:fullscreen body.lb-on .tabs{display:none}
 .lb-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .lb-top > b{font:800 22px/1 var(--font-display);text-transform:uppercase;letter-spacing:.6px}
@@ -201,8 +202,8 @@ body.lb-on .tabs{margin-top:12px;margin-bottom:10px}
 .lb-wpbar{height:.3em;border-radius:99px;background:rgba(244,63,94,.35);overflow:hidden;margin-bottom:.4em}
 .lb-wpbar i{display:block;height:100%;background:var(--neon);border-radius:99px;transition:width .6s}
 .lb-rows{display:grid;gap:.22em}
-.lb-row{display:grid;grid-template-columns:minmax(0,1fr) 2.6em minmax(0,1fr);align-items:stretch;gap:.3em}
-.lb-row.two{grid-template-columns:2.6em minmax(0,1fr) 2.6em minmax(0,1fr)}
+.lb-row{display:grid;grid-template-columns:minmax(0,1fr) max(2.6em,42px) minmax(0,1fr);align-items:stretch;gap:.3em}
+.lb-row.two{grid-template-columns:max(2.6em,42px) minmax(0,1fr) max(2.6em,42px) minmax(0,1fr)}
 .lb-slot{display:grid;place-items:center;font:800 .62em/1 var(--font-body);letter-spacing:.06em;color:var(--muted);text-transform:uppercase;background:rgba(255,255,255,.04);border-radius:6px}
 .lb-p{position:relative;overflow:hidden;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.4em;padding:.28em .45em .32em;border-radius:8px;background:rgba(0,0,0,.22);border:1px solid transparent;cursor:pointer;min-width:0}
 .lb-p:hover{border-color:var(--line-strong)}
@@ -226,6 +227,28 @@ body.lb-on .tabs{margin-top:12px;margin-bottom:10px}
 .lb-sc.bump{animation:bump .6s cubic-bezier(.3,1.6,.5,1)}
 @keyframes lbflash{0%{background:rgba(74,222,128,.45)}100%{background:rgba(0,0,0,.22)}}
 @media (max-width:700px){.lb-grid{grid-template-columns:minmax(0,1fr)}}
+/* Live board readability: menus hide, key text never shrinks below these sizes, the status line drops first when space runs out */
+body.lb-on .topnav{display:none}
+.lb-n{font-size:max(.92em,13px)}
+.lb-s b{font-size:max(1.25em,17px)}
+.lb-s small{font-size:max(.7em,12px)}
+.lb-g{font-size:max(.68em,12px)}
+.lb-pos{font-size:max(.62em,12px)}
+.lb-slot{font-size:max(.62em,12px)}
+.lb-lg{font-size:max(.72em,12px)}
+.lb-pj{font-size:max(.74em,12px)}
+.lb-tn{font-size:max(.8em,13px)}
+.lb-grid.compact .lb-g{display:none}
+.lb-grid.compact .lb-s{flex-direction:row;align-items:baseline;gap:6px}
+.lb-grid.compact .lb-p.r .lb-s{flex-direction:row-reverse}
+.lb-grid.compact .lb-s small{margin-top:0}
+.lb-grid.compact .lb-p{padding-top:.2em;padding-bottom:.24em}
+
+.lb-dv{font-style:normal;font-weight:800;margin-left:.35em}
+.lb-dv.up{color:var(--neon)}.lb-dv.dn{color:var(--flag)}
+body.lb-on .tabs{top:0}
+.lb-g.bye{color:#fb7185}
+
 </style>
 </head>
 <body class="theme-fb">
@@ -259,15 +282,15 @@ body.lb-on .tabs{margin-top:12px;margin-bottom:10px}
   </section>
 
   <nav class="tabs" role="tablist" aria-label="Football HQ sections" id="tabs">
-    <button role="tab" data-v="gameday" aria-selected="true">🏟️ Gameday</button>
-    <button role="tab" data-v="live" aria-selected="false">📺 Live</button>
-    <button role="tab" data-v="leagues" aria-selected="false">🏆 Leagues</button>
-    <button role="tab" data-v="startsit" aria-selected="false">🔁 Start / Sit</button>
-    <button role="tab" data-v="waivers" aria-selected="false">📡 Waivers</button>
-    <button role="tab" data-v="dynasty" aria-selected="false">👑 Dynasty Board</button>
-    <button role="tab" data-v="trade" aria-selected="false">⚖️ Trade Lab</button>
-    <button role="tab" data-v="mock" aria-selected="false">🎯 Mock Startup</button>
-    <button role="tab" data-v="plan" aria-selected="false">🗓️ Dynasty Plan</button>
+    <button role="tab" data-v="gameday" aria-selected="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-calendar-check"/></svg> Gameday</button>
+    <button role="tab" data-v="live" aria-selected="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-tv"/></svg> Live</button>
+    <button role="tab" data-v="leagues" aria-selected="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-trophy"/></svg> Leagues</button>
+    <button role="tab" data-v="startsit" aria-selected="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-arrow-left-right"/></svg> Start / Sit</button>
+    <button role="tab" data-v="waivers" aria-selected="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-radar"/></svg> Waivers</button>
+    <button role="tab" data-v="dynasty" aria-selected="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-crown"/></svg> Dynasty Board</button>
+    <button role="tab" data-v="trade" aria-selected="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-scale"/></svg> Trade Lab</button>
+    <button role="tab" data-v="mock" aria-selected="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-target"/></svg> Mock Startup</button>
+    <button role="tab" data-v="plan" aria-selected="false"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-calendar-range"/></svg> Dynasty Plan</button>
   </nav>
 
   <!-- GAMEDAY -->
@@ -346,7 +369,7 @@ body.lb-on .tabs{margin-top:12px;margin-bottom:10px}
     <div class="card" style="margin-top:16px">
       <div class="minifield" aria-hidden="true"><div class="ez l">YOU GIVE</div><div class="fair"></div><div class="mid"></div><div class="ez r">YOU GET</div>
         <svg class="fb" id="trBall" viewBox="0 0 64 40"><ellipse cx="32" cy="20" rx="30" ry="18" fill="#8a4520"/><path d="M20 20h24M24 15v10M29 15v10M34 15v10M39 15v10" stroke="#fff" stroke-width="2.6"/></svg></div>
-      <div class="row"><div class="verdict" id="trVerdict">Add players to start</div><span class="sp"></span><button class="btn gold" id="trSend" disabled>Send it 🤝</button></div>
+      <div class="row"><div class="verdict" id="trVerdict">Add players to start</div><span class="sp"></span><button class="btn gold" id="trSend" disabled>Send it <svg class="ic" aria-hidden="true" focusable="false"><use href="#i-handshake"/></svg></button></div>
       <div class="sub" id="trHint" style="margin-top:6px"></div>
     </div>
   </section>
@@ -410,6 +433,7 @@ body.lb-on .tabs{margin-top:12px;margin-bottom:10px}
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Player card"></div></div>
 <footer class="foot">Data: the public <a href="https://docs.sleeper.com/" target="_blank" rel="noopener">Sleeper API</a> (leagues, rosters, matchups, trending, schedule) and Sleeper's projections and dynasty ADP feeds, refreshed when you open the page. Player bios come from a snapshot built <span id="snapDate"></span>. Your settings, flags and watchlist are saved in this browser only.</footer>
 
+<script src="../assets/icons.js"></script>
 <script src="../assets/fx.js"></script>
 <script src="nfl-snapshot.js"></script>
 <script src="football.js"></script>
