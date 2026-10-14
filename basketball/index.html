@@ -1102,7 +1102,9 @@ PLAYERS.forEach((p, i) => {
   p.slug = (p.sname || p.name).normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/['.]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 });
 // Sleeper dynasty ADP is what the other drafters see in the draft room, so it drives every prediction of their picks.
-// mkt = average draft position; msig = how far a player's pick typically strays from it (from Sleeper's spread, capped).
+// mkt = average draft position; msig = how far a player's pick typically strays from it. Sleeper's spread is pooled over
+// thousands of drafts, so it's scaled down and capped: in this league most drafters take one of the top few by ADP, so
+// a player rarely slides more than about 8 spots and almost never 20.
 const SADP = window.DDHQ_SADP || {};
 PLAYERS.forEach(p => { const a = SADP[p.sid]; p.sadp = a ? a[0] : null; p.sstd = a ? a[1] : null; });
 const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -1181,7 +1183,7 @@ function recompute() {
   RANKED.forEach((p, i) => p.rank = i + 1);
   MAXSCORE = RANKED[0].score;
   [...PLAYERS].sort((a, b) => a.cons - b.cons).forEach((p, i) => p.adp = i + 1);
-  PLAYERS.forEach(p => { p.mkt = p.sadp != null ? p.sadp : p.adp; p.msig = clamp(p.sstd != null ? 0.6 * p.sstd : 1.5 + 0.1 * p.mkt, 0.75, 4 + 0.25 * p.mkt); p.msigDown = Math.min(p.msig, 0.2 * Math.max(0.5, p.mkt - 0.5)); });
+  PLAYERS.forEach(p => { p.mkt = p.sadp != null ? p.sadp : p.adp; p.msig = clamp(p.sstd != null ? 0.3 * p.sstd : 1.2 + 0.04 * p.mkt, 0.75, 1.5 + 0.06 * p.mkt); p.msigDown = Math.min(p.msig, 0.2 * Math.max(0.5, p.mkt - 0.5)); });
   let t = 1, cnt = 0;
   RANKED.forEach((p, i) => {
     if (i > 0) { const prev = RANKED[i - 1].score, gap = prev - p.score; if (gap >= Math.max(1.4, prev * 0.04) || cnt >= 12) { t++; cnt = 0; } }
@@ -1878,6 +1880,7 @@ function renderDuo(best, sb, ST, isMine, my) {
   const box = (c, label, cls) => !c ? '' : `<div class="duo-b ${cls}"><div class="eyebrow">${label}</div>
     <div class="row" style="flex-wrap:nowrap;margin-top:8px">${photo(c.p)}<div style="flex:1;min-width:0"><div><span class="pname">${esc(c.p.name)}</span>${eligChips(c.p)}</div><div class="pmeta">${c.p.team} · age ${fmt(c.p.age)} · ${fmt(c.p.fp1)} FPPG · rank ${c.p.rank} · ADP ${fmt(c.p.mkt, 1)}</div></div></div>
     <div style="margin-top:6px">${c.reasons.slice(0, 3).map(([t, k]) => `<span class="reason ${k}">${esc(t)}</span>`).join('')}</div>
+    ${c.wait ? `<div class="sub" style="margin-top:6px">⏳ Can wait on <b>${esc(c.wait.p.name)}</b>: ${Math.round(c.wait.lasts * 100)}% he's still there at #${c.waitAt + 1}.</div>` : ''}
     <div class="row" style="margin-top:8px"><button class="btn small ${isMine ? 'primary' : ''}" data-draft="${c.p.id}">Draft</button><button class="btn small ghost" data-info="${c.p.id}">Info</button></div></div>`;
   let html = '';
   if (best && !sb) html = box(best, `Best overall pick · ${rp(my)}`, 'all') + `<div class="duo-b hint"><div class="eyebrow">Best for your strategy</div><p class="sub" style="margin:8px 0">You're on <b>Balanced</b>, so the overall pick is your strategy pick. Choose a strategy above to get a second opinion.</p><button class="btn small" data-go="strategy">Compare strategies</button></div>`;
@@ -1962,7 +1965,18 @@ function renderDraft() {
       return { p, s, reasons, gone };
     };
     const cands = pool.slice(0, 45).map(p => candOf(p, p.score)).filter(c => !c.gone).sort((a, b) => b.s - a.s).slice(0, 5);
-    const ST = stratOf(), stratBest = ST.k === 'balanced' ? null : [...pool].sort((a, b) => b.strat[ST.k] - a.strat[ST.k]).slice(0, 45).map(p => candOf(p, p.strat[ST.k] * MAXSCORE / 100)).filter(c => !c.gone).sort((a, b) => b.s - a.s)[0] || null;
+    /* Strategy pick: the strategy's score, blended 70/30 with your overall board so it leans rather than lurches. It only
+       suggests someone with a real chance of being gone before your following pick; a strategy fit who will very likely
+       still be there is shown as "can wait" instead of taking this pick. */
+    const ST = stratOf(), lastsOdds = p => { const a = O.probs.get(p.id), b = O.probs2.get(p.id); return isMine ? a : (a && b != null ? b / a : null); };
+    const sAll = ST.k === 'balanced' ? [] : [...pool].sort((a, b) => b.strat[ST.k] - a.strat[ST.k]).slice(0, 45)
+      .map(p => candOf(p, (0.7 * p.strat[ST.k] + 0.3 * p.strat.balanced) * MAXSCORE / 100)).filter(c => !c.gone)
+      .map(c => Object.assign(c, { lasts: lastsOdds(c.p) })).sort((a, b) => b.s - a.s);
+    const nextNo = isMine ? O.at : O.at2, risky = c => c.lasts == null || nextNo == null || c.lasts < 0.6;
+    const stratBest = sAll.find(risky) || sAll[0] || null, stratWait = stratBest && sAll[0] && sAll[0] !== stratBest ? sAll[0] : null;
+    if (stratBest) stratBest.reasons = stratBest.reasons.filter(([x]) => !x.includes('%'));
+    if (stratBest && stratBest.lasts != null && nextNo != null) stratBest.reasons.unshift(stratBest.lasts < 0.6 ? [`Only ${Math.round(stratBest.lasts * 100)}% he lasts to #${nextNo + 1}`, 'hot'] : [`${Math.round(stratBest.lasts * 100)}% he lasts to #${nextNo + 1}`, '']);
+    if (stratBest) { stratBest.wait = stratWait; stratBest.waitAt = nextNo; }
     gradePicks(cands, my + 1, RANKED.filter(p => !dset.has(p.id) && FLAGS[p.id] !== 'A').slice(0, 12).map(p => p.score));
     cands.forEach(c => { if (c.adpv >= 3) c.reasons.unshift([`Falls ${Math.round(c.adpv)} past Sleeper ADP`, 'acc']); else if (c.adpv <= -8) c.reasons.push([`Sleeper ADP ${fmt(c.p.mkt, 0)}`, '']); });
     $('#dRecSub').textContent = isMine ? `Graded for your pick now, ${rp(my)}` : `Graded for your next pick, ${rp(my)}`;
