@@ -1015,6 +1015,8 @@ function lbChop(L, w) {
 function lbFit() {
   const wrap = $('#lbWrap'), grid = $('#lbGrid'); if (!wrap || !grid || G.view !== 'live') return;
   const MODES = ['compact', 'tight', 'short'];
+  // Full screen from the button or from Chrome's F11 (the window then fills the whole screen): menus hide, text can grow.
+  document.body.classList.toggle('lb-full', !!document.fullscreenElement || (innerHeight >= screen.height - 2 && innerWidth >= screen.width - 2));
   grid.classList.remove(...MODES); grid.style.overflowY = '';
   if (innerWidth < 700) { wrap.style.height = ''; grid.style.setProperty('--fs', '15px'); return; } // phones scroll instead
   wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 6) + 'px';
@@ -1025,7 +1027,7 @@ function lbFit() {
   const names = [...grid.querySelectorAll('.lb-n, .lb-tn')];
   const ok = () => grid.scrollHeight <= grid.clientHeight + 1 && names.every(n => n.scrollWidth <= n.clientWidth + 1);
   const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (ok()) return true; } return false; };
-  const big = document.fullscreenElement ? 26 : 16; // full screen has room to spare, so start bigger
+  const big = 34; // as big as the window allows; the loop shrinks until everything fits
   for (const [mode, from, to] of [[[], big, 11], [['compact'], 15, 10], [['compact', 'tight'], 15, 9], [['compact', 'tight', 'short'], 15, 8]]) {
     grid.classList.remove(...MODES); grid.classList.add(...mode);
     if (fit(from, to)) return;

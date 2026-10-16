@@ -186,6 +186,8 @@ body[data-mode="season"] .ms-track i{transform:translateX(44px) rotate(352deg)}
 body.lb-on #bbSB{display:none}
 body.lb-on main{max-width:none;padding-block:10px}
 :fullscreen body.lb-on .topnav{display:none}
+body.lb-on.lb-full .topnav,body.lb-on.lb-full .tabbar{display:none}
+.bl-grid .bl-sc{font-size:min(2.3em,60px)}
 .bl-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .bl-top > b{font:800 22px/1 var(--font-display);text-transform:uppercase;letter-spacing:.6px}
 .bl-k{font-weight:800}.bl-k.up{color:var(--good-ink)}.bl-k.behind{color:var(--warn-ink)}.bl-k.down{color:var(--bad)}
