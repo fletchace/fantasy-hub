@@ -401,7 +401,7 @@ function blFit() {
   const wrap = q('#blWrap'), grid = q('#blGrid'); if (!wrap || !grid || view !== 'nblive') return;
   const MODES = ['compact', 'tight', 'short'];
   // Full screen from the button or from Chrome's F11 (the window then fills the whole screen): menus hide, text can grow.
-  document.body.classList.toggle('lb-full', !!document.fullscreenElement || (innerHeight >= screen.height - 2 && innerWidth >= screen.width - 2));
+  document.body.classList.toggle('lb-full', !!document.fullscreenElement || (screen.height > 200 && screen.width > 200 && innerHeight >= screen.height - 2 && innerWidth >= screen.width - 2));
   grid.classList.remove(...MODES); grid.style.overflowY = '';
   if (innerWidth < 700) { wrap.style.height = ''; grid.style.setProperty('--fs', '15px'); return; } // phones scroll instead
   wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 6) + 'px';
