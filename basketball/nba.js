@@ -411,14 +411,16 @@ function blFit() {
   /* Everything must fit the window AND every name must show in full. Shrink the text (scores included) step by step;
      if that isn't enough, drop the game-status line, then put each projection beside its score, then use short names
      ("D. Prescott"). If even that can't fit, the board scrolls rather than cutting anything off. */
-  const names = [...grid.querySelectorAll('.bl-n, .bl-tn')];
+  const names = [...grid.querySelectorAll('.bl-n')];
   const ok = () => grid.scrollHeight <= grid.clientHeight + 1 && names.every(n => n.scrollWidth <= n.clientWidth + 1);
   const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (ok()) return true; } return false; };
   const big = 34; // as big as the window allows; the loop shrinks until everything fits
-  for (const [mode, from, to] of [[[], big, 11], [['compact'], 15, 10], [['compact', 'tight'], 15, 9], [['compact', 'tight', 'short'], 15, 8]]) {
+  for (const [mode, from, to] of [[[], big, 11], [['tight'], 16, 10], [['tight', 'short'], 16, 9.5], [['tight', 'short', 'compact'], 15, 8]]) {
     grid.classList.remove(...MODES); grid.classList.add(...mode);
     if (fit(from, to)) return;
   }
+  // Nothing fits every name: keep the most compact layout at the biggest size that still fits the height.
+  for (let fs = 15; fs >= 8; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (grid.scrollHeight <= grid.clientHeight + 1) return; }
   grid.style.overflowY = 'auto';
 }
 function renderLiveNBA() {

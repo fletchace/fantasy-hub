@@ -1006,7 +1006,7 @@ function lbCell(id, pts, L, w, side, key) {
   const inj = p.inj && gs === 'pre' ? ` <span class="lb-inj">${esc(/quest/i.test(p.inj) ? 'Q' : String(p.inj).toUpperCase())}</span>` : '';
   return `<div class="lb-p ${side} ${st}" data-pid="${esc(id)}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
     <span class="lb-pos" style="--pc:${POS_COL[p.pos] || '#8a93ad'}">${esc(p.pos)}</span>
-    <span class="lb-who"><span class="lb-n"><span class="nf">${esc(p.pos === 'DEF' ? lbName(p) : p.name)}</span><span class="ns">${esc(lbName(p))}</span>${inj}</span><span class="lb-g ${gs}">${esc(gl).replace('\u0001', '<span class="go">').replace('\u0002', '</span>')}</span></span>
+    <span class="lb-who"><span class="lb-n">${p.team && p.team !== 'FA' ? `<img class="lb-tl" src="https://sleepercdn.com/images/team_logos/nfl/${esc(p.team.toLowerCase())}.png" alt="${esc(p.team)}" loading="lazy" onerror="this.remove()">` : ''}<span class="nf">${esc(p.pos === 'DEF' ? lbName(p) : p.name)}</span><span class="ns">${esc(lbName(p))}</span>${inj}</span><span class="lb-g ${gs}">${esc(gl).replace('\u0001', '<span class="go">').replace('\u0002', '</span>')}</span></span>
     <span class="lb-s"><b>${f1(pts)}</b><small>${f1(proj)}${st === 'wait' ? '' : `<i class="lb-dv ${pts >= proj ? 'up' : 'dn'}">${pts >= proj ? '+' : '−'}${f1(Math.abs(pts - proj))} ${pts >= proj ? '▲' : '▼'}</i>`}</small></span><i class="lb-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
 }
 const lbPre = (e, L, w) => (e && e.starters || []).reduce((t, id) => t + (id && id !== '0' ? projFor(id, L, w) : 0), 0);
@@ -1046,16 +1046,18 @@ function lbFit() {
   wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 6) + 'px';
   const extra = document.documentElement.scrollHeight - innerHeight; if (extra > 0) wrap.style.height = Math.max(320, parseFloat(wrap.style.height) - extra) + 'px'; // page padding below the board
   /* Everything must fit the window AND every name must show in full. Shrink the text (scores included) step by step;
-     if that isn't enough, drop the game-status line, then put each projection beside its score, then use short names
-     ("D. Prescott"). If even that can't fit, the board scrolls rather than cutting anything off. */
-  const names = [...grid.querySelectorAll('.lb-n, .lb-tn')];
+     if that isn't enough, put each projection beside its score, then use short names ("D. Prescott"), and only as
+     a last resort drop the team / game-time line (a small team logo then sits next to the name instead). If even that can't fit, the board scrolls rather than cutting anything off. */
+  const names = [...grid.querySelectorAll('.lb-n')];
   const ok = () => grid.scrollHeight <= grid.clientHeight + 1 && names.every(n => n.scrollWidth <= n.clientWidth + 1);
   const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (ok()) return true; } return false; };
   const big = 34; // as big as the window allows; the loop shrinks until everything fits
-  for (const [mode, from, to] of [[[], big, 11], [['compact'], 15, 10], [['compact', 'tight'], 15, 9], [['compact', 'tight', 'short'], 15, 8]]) {
+  for (const [mode, from, to] of [[[], big, 11], [['tight'], 16, 10], [['tight', 'short'], 16, 9.5], [['tight', 'short', 'compact'], 15, 8]]) {
     grid.classList.remove(...MODES); grid.classList.add(...mode);
     if (fit(from, to)) return;
   }
+  // Nothing fits every name: keep the most compact layout at the biggest size that still fits the height.
+  for (let fs = 15; fs >= 8; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (grid.scrollHeight <= grid.clientHeight + 1) return; }
   grid.style.overflowY = 'auto';
 }
 function renderLive() {
