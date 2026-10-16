@@ -7,8 +7,8 @@
 <meta name="description" content="Weekly tools for my Sleeper leagues plus dynasty prep for 2027.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><ellipse cx='32' cy='32' rx='28' ry='17' fill='%238a4520' transform='rotate(-30 32 32)'/><path d='M22 38l20-12M27 36l-3-4M32 33l-3-4M37 30l-3-4' stroke='white' stroke-width='3'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Graduate&family=Barlow:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
-<link rel="stylesheet" href="../assets/hub.css?v=20261015c">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Graduate&family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="../assets/hub.css?v=20261015e">
 <style>
 /* Football HQ: page hero + playbook tabs. Every panel is a chalk card on turf; league matchups read like jumbotrons. */
 .connect{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px}
@@ -180,6 +180,9 @@ body.lb-on .tabs{margin-top:0;margin-bottom:10px}
 body.lb-on main.wrap{padding-top:12px}
 :fullscreen body.lb-on .topnav,:fullscreen body.lb-on .tabs{display:none}
 body.lb-on.lb-full .topnav,body.lb-on.lb-full .tabs{display:none}
+/* full screen: narrower letters for names and lines, so the board can use the extra height for taller text */
+body.lb-full .lb-grid .lb-n,body.lb-full .lb-grid .lb-tn,body.lb-full .lb-grid .lb-g,body.lb-full .lb-grid .lb-pj{font-family:"Barlow Condensed","Barlow",sans-serif;letter-spacing:.01em}
+body.lb-full .lb-grid .lb-n{font-weight:700}
 .lb-sc{max-width:100%}.lb-grid .lb-sc{font-size:min(2.3em,60px)}
 .lb-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .lb-top > b{font:800 22px/1 var(--font-display);text-transform:uppercase;letter-spacing:.6px}
@@ -190,7 +193,7 @@ body.lb-on.lb-full .topnav,body.lb-on.lb-full .tabs{display:none}
 .lb-card{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:.55em .65em .6em;min-width:0;display:flex;flex-direction:column}
 .lb-lg{display:flex;align-items:center;gap:.5em;font:700 .72em/1.2 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--lime)}
 .lb-lg .sp{flex:1}
-.lb-wp{font:800 1.05em/1 var(--font-display);letter-spacing:.04em;padding:.2em .5em;border-radius:6px}
+.lb-wp{font:800 1.05em/1 var(--font-display);letter-spacing:.04em;padding:.2em .5em;border-radius:6px;white-space:nowrap;flex:none}
 .lb-wp.good{background:rgba(74,222,128,.16);color:var(--neon)}.lb-wp.bad{background:rgba(244,63,94,.16);color:#fda4af}
 .lb-head{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:end;gap:.5em;margin:.35em 0 .3em}
 .lb-head.chop{grid-template-columns:minmax(0,1fr) auto}
@@ -235,7 +238,7 @@ body.lb-on.lb-full .topnav,body.lb-on.lb-full .tabs{display:none}
 body.lb-on .topnav{display:none}
 .lb-n{font-size:max(.92em,10px)}
 .lb-s b{font-size:max(1.2em,13px)}
-.lb-s small{font-size:max(.7em,10px)}
+.lb-s small{font-size:max(.58em,9.5px)}
 .lb-g{font-size:max(.68em,10px)}
 .lb-pos{font-size:max(.62em,9.5px)}
 .lb-slot{font-size:max(.62em,10px)}
@@ -438,10 +441,10 @@ body.lb-on .tabs{top:0}
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Player card"></div></div>
 <footer class="foot">Data: the public <a href="https://docs.sleeper.com/" target="_blank" rel="noopener">Sleeper API</a> (leagues, rosters, matchups, trending, schedule) and Sleeper's projections and dynasty ADP feeds, refreshed when you open the page. Player bios come from a snapshot built <span id="snapDate"></span>. Your settings, flags and watchlist are saved in this browser only.</footer>
 
-<script src="../assets/icons.js?v=20261015c"></script>
-<script src="../assets/fx.js?v=20261015c"></script>
+<script src="../assets/icons.js?v=20261015e"></script>
+<script src="../assets/fx.js?v=20261015e"></script>
 <script src="nfl-snapshot.js"></script>
-<script src="football.js?v=20261015c"></script>
-<script src="dynasty.js?v=20261015c"></script>
+<script src="football.js?v=20261015e"></script>
+<script src="dynasty.js?v=20261015e"></script>
 </body>
 </html>

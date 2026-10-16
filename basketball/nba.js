@@ -438,6 +438,7 @@ function renderLiveNBA() {
   q('#blFull').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); };
 }
 let blRT = null;
+try { document.fonts.addEventListener('loadingdone', () => blFit()); } catch (e) {}
 addEventListener('resize', () => { clearTimeout(blRT); blRT = setTimeout(blFit, 120); });
 document.addEventListener('fullscreenchange', () => { const b = q('#blFull'); if (b) b.textContent = document.fullscreenElement ? '✕ Exit full screen' : '⛶ Full screen'; setTimeout(blFit, 60); setTimeout(blFit, 400); });
 setInterval(() => { const el = q('#blAgo'); if (!el || !N.last) return; const s = Math.round((Date.now() - N.last) / 1000); el.textContent = `updated ${s < 60 ? s + 's' : Math.round(s / 60) + ' min'} ago · auto every ${gamesLive() ? '30s' : '2 min'}`; }, 1000);

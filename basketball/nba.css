@@ -187,6 +187,8 @@ body.lb-on #bbSB{display:none}
 body.lb-on main{max-width:none;padding-block:10px}
 :fullscreen body.lb-on .topnav{display:none}
 body.lb-on.lb-full .topnav,body.lb-on.lb-full .tabbar{display:none}
+body.lb-full .bl-grid .bl-n,body.lb-full .bl-grid .bl-tn,body.lb-full .bl-grid .bl-g,body.lb-full .bl-grid .bl-pj{font-family:"Barlow Condensed","Barlow",sans-serif;letter-spacing:.01em}
+body.lb-full .bl-grid .bl-n{font-weight:700}
 .bl-grid .bl-sc{font-size:min(2.3em,60px)}
 .bl-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .bl-top > b{font:800 22px/1 var(--font-display);text-transform:uppercase;letter-spacing:.6px}
@@ -196,7 +198,7 @@ body.lb-on.lb-full .topnav,body.lb-on.lb-full .tabbar{display:none}
 .bl-card{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:.55em .65em .6em;min-width:0;box-shadow:var(--shadow);display:flex;flex-direction:column}
 .bl-lg{display:flex;align-items:center;gap:.5em;font:700 .72em/1.2 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-text)}
 .bl-lg .sp{flex:1}
-.bl-wp{font:800 1.05em/1 var(--font-display);letter-spacing:.04em;padding:.2em .5em;border-radius:6px}
+.bl-wp{font:800 1.05em/1 var(--font-display);letter-spacing:.04em;padding:.2em .5em;border-radius:6px;white-space:nowrap;flex:none}
 .bl-wp.good{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good-ink)}.bl-wp.bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
 .bl-head{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:end;gap:.5em;margin:.35em 0 .3em}
 .bl-tm{min-width:0}.bl-tm.r{text-align:right}
@@ -239,7 +241,7 @@ body.lb-on.lb-full .topnav,body.lb-on.lb-full .tabbar{display:none}
 body.lb-on .topnav{display:none}
 .bl-n{font-size:max(.92em,10px)}
 .bl-s b{font-size:max(1.2em,13px)}
-.bl-s small{font-size:max(.7em,10px)}
+.bl-s small{font-size:max(.58em,9.5px)}
 .bl-g{font-size:max(.68em,10px)}
 .bl-pos{font-size:max(.62em,9.5px)}
 .bl-slot{font-size:max(.62em,10px)}

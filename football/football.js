@@ -968,13 +968,34 @@ setInterval(() => { const el = document.getElementById('syncAgo'); if (!el || !L
    projection under his score (green = beating it, amber = still playing and behind, red = finished short), and both
    teams' scores, projected finals and pre-game projections. The text shrinks to fit the window, so nothing scrolls. */
 const lbName = p => p.pos === 'DEF' ? (p.team || p.id) + ' D/ST' : (n => n.length > 1 ? n[0][0] + '. ' + n.slice(1).join(' ') : n[0])(String(p.name).split(' '));
+/* Kickoff times and the live game clock come from ESPN's public NFL scoreboard (Sleeper's schedule only has dates).
+   Re-checked every minute while games are on, every 10 minutes otherwise. */
+const LBG = { wk: null, at: 0, busy: false, t: {} };
+const ESPN_NFL_FIX = { WSH: 'WAS' };
+async function lbLoadGames() {
+  const w = G.week, live = gamesLiveNow();
+  if (LBG.busy || (LBG.wk === w && Date.now() - LBG.at < (live ? 60e3 : 600e3))) return false;
+  LBG.busy = true;
+  try {
+    const j = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=2&week=' + w + '&dates=' + G.season, { cache: 'no-store' }).then(r => r.json());
+    const t = {};
+    for (const e of j.events || []) { const c = (e.competitions || [])[0]; if (!c) continue; const st = c.status && c.status.type || {};
+      for (const x of c.competitors || []) { const ab = ESPN_NFL_FIX[x.team.abbreviation] || x.team.abbreviation; t[ab] = { at: Date.parse(e.date), state: st.state, detail: st.shortDetail || '' }; } }
+    LBG.t = t; LBG.wk = w; LBG.at = Date.now(); return true;
+  } catch (e) { return false; } finally { LBG.busy = false; }
+}
+// Line under each name: his team, opponent and when he plays ("DAL @ GB · Sun 1:00 PM", "… · 2nd 4:12", "… · FINAL").
 function lbGame(team, w) {
-  if (!team || team === 'FA') return ['', 'FA'];
+  if (!team || team === 'FA') return ['', 'Free agent'];
   const g = weekGames(w)[team];
-  if (!g) return ['bye', 'BYE'];
-  if (g.status === 'in_game' || g.status === 'in_progress') return ['live', 'LIVE'];
-  if (g.status === 'complete' || g.date < today()) return ['fin', 'FINAL'];
-  return ['pre', (g.home ? 'v ' : '@ ') + g.opp + ' · ' + new Date(g.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' })];
+  if (!g) return ['bye', team + ' · BYE'];
+  const who = team + (g.home ? ' vs ' : ' @ ') + g.opp, e = LBG.wk === w ? LBG.t[team] : null;
+  if (e && e.state === 'in') { const [clock, per] = e.detail.split(' - '); return ['live', who + ' · ' + (per ? per + ' ' + clock : e.detail)]; }
+  if ((e && e.state === 'post') || g.status === 'complete') return ['fin', who + ' · FINAL'];
+  if (g.status === 'in_game' || g.status === 'in_progress') return ['live', who + ' · LIVE'];
+  if (e && e.at) return ['pre', who + ' · ' + new Date(e.at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })];
+  if (g.date < today()) return ['fin', who + ' · FINAL'];
+  return ['pre', who + ' · ' + new Date(g.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' })];
 }
 function lbCell(id, pts, L, w, side, key) {
   if (!id || id === '0') return `<div class="lb-p ${side} empty"><span class="lb-who"><span class="lb-n">Empty slot</span></span></div>`;
@@ -1035,6 +1056,7 @@ function lbFit() {
   grid.style.overflowY = 'auto';
 }
 function renderLive() {
+  lbLoadGames().then(got => { if (got && G.view === 'live') renderLive(); });
   const body = $('#liveBody'), ls = liveLeagues().filter(L => L.mine && L.matchups && L.matchups.length), w = G.week;
   if (!ls.length) { body.innerHTML = `<div class="card empty"><div style="font-size:40px"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-tv"/></svg></div><h3 style="margin:8px 0">No live matchups yet</h3><p class="sub">Connect your Sleeper username (or add an ESPN league) on the Gameday tab and your matchups show up here.</p><a class="btn gold" href="#gameday">Go to Gameday</a></div>`; return; }
   const wg = G.sched.filter(g => g.week === w), live = wg.filter(g => g.status === 'in_game' || g.status === 'in_progress').length, fin = wg.filter(g => g.status === 'complete').length;
@@ -1049,6 +1071,7 @@ function renderLive() {
   $('#lbFull').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => toast('Full screen is blocked here')); };
 }
 let lbRT = null;
+try { document.fonts.addEventListener('loadingdone', () => lbFit()); } catch (e) {}
 addEventListener('resize', () => { clearTimeout(lbRT); lbRT = setTimeout(lbFit, 120); });
 document.addEventListener('fullscreenchange', () => { const b = $('#lbFull'); if (b) b.textContent = document.fullscreenElement ? '✕ Exit full screen' : '⛶ Full screen'; setTimeout(lbFit, 60); setTimeout(lbFit, 400); });
 setInterval(() => { const el = $('#lbAgo'); if (!el || !LIVE.last) return; const s = Math.round((Date.now() - LIVE.last) / 1000); el.textContent = `updated ${s < 60 ? s + 's' : Math.round(s / 60) + ' min'} ago · auto every ${gamesLiveNow() ? '30s' : '5 min'}`; }, 1000);
