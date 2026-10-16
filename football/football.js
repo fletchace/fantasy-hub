@@ -989,7 +989,8 @@ function lbGame(team, w) {
   if (!team || team === 'FA') return ['', 'Free agent'];
   const g = weekGames(w)[team];
   if (!g) return ['bye', team + ' · BYE'];
-  const who = team + (g.home ? ' vs ' : ' @ ') + g.opp, e = LBG.wk === w ? LBG.t[team] : null;
+  // the opponent part is marked so the normal view can hide it (full screen shows the whole matchup)
+  const who = team + '\u0001' + (g.home ? ' vs ' : ' @ ') + g.opp + '\u0002', e = LBG.wk === w ? LBG.t[team] : null;
   if (e && e.state === 'in') { const [clock, per] = e.detail.split(' - '); return ['live', who + ' · ' + (per ? per + ' ' + clock : e.detail)]; }
   if ((e && e.state === 'post') || g.status === 'complete') return ['fin', who + ' · FINAL'];
   if (g.status === 'in_game' || g.status === 'in_progress') return ['live', who + ' · LIVE'];
@@ -1005,7 +1006,7 @@ function lbCell(id, pts, L, w, side, key) {
   const inj = p.inj && gs === 'pre' ? ` <span class="lb-inj">${esc(/quest/i.test(p.inj) ? 'Q' : String(p.inj).toUpperCase())}</span>` : '';
   return `<div class="lb-p ${side} ${st}" data-pid="${esc(id)}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
     <span class="lb-pos" style="--pc:${POS_COL[p.pos] || '#8a93ad'}">${esc(p.pos)}</span>
-    <span class="lb-who"><span class="lb-n"><span class="nf">${esc(p.pos === 'DEF' ? lbName(p) : p.name)}</span><span class="ns">${esc(lbName(p))}</span>${inj}</span><span class="lb-g ${gs}">${esc(gl)}</span></span>
+    <span class="lb-who"><span class="lb-n"><span class="nf">${esc(p.pos === 'DEF' ? lbName(p) : p.name)}</span><span class="ns">${esc(lbName(p))}</span>${inj}</span><span class="lb-g ${gs}">${esc(gl).replace('\u0001', '<span class="go">').replace('\u0002', '</span>')}</span></span>
     <span class="lb-s"><b>${f1(pts)}</b><small>${f1(proj)}${st === 'wait' ? '' : `<i class="lb-dv ${pts >= proj ? 'up' : 'dn'}">${pts >= proj ? '+' : '−'}${f1(Math.abs(pts - proj))} ${pts >= proj ? '▲' : '▼'}</i>`}</small></span><i class="lb-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
 }
 const lbPre = (e, L, w) => (e && e.starters || []).reduce((t, id) => t + (id && id !== '0' ? projFor(id, L, w) : 0), 0);
