@@ -1008,7 +1008,7 @@ function lbChop(L, w) {
   const rows = L.slots.map((s, i) => `<div class="lb-row one"><span class="lb-slot">${esc(lbSlot(s))}</span>${lbCell((e.starters || [])[i], (e.starters_points || [])[i] || 0, L, w, 'l', L.id + ':a:' + i)}</div>`).join('');
   const safe = c.survive == null ? null : c.survive;
   return `<section class="lb-card"><div class="lb-lg"><span>${esc(L.name)} · chopped</span><span class="sp"></span>${safe != null ? `<span class="lb-wp ${safe >= .5 ? 'good' : 'bad'}">${Math.round(safe * 100)}% to survive</span>` : ''}</div>
-    <div class="lb-head">${lbTeam(L.teamName(L.mine), e.points || 0, me.proj || 0, pre, 'l', L.id + ':A', true)}
+    <div class="lb-head chop">${lbTeam(L.teamName(L.mine), e.points || 0, me.proj || 0, pre, 'l', L.id + ':A', true)}
       <div class="lb-tm r"><div class="lb-tn">Rank ${me.rank || '–'} of ${c.alive}</div><b class="lb-sc ${c.cushion != null && c.cushion < 0 ? 'bad' : ''}">${c.cushion == null ? '–' : (c.cushion >= 0 ? '+' : '') + f1(c.cushion)}</b><div class="lb-pj">${c.low ? `over the chop line · ${esc(c.low.name)} ${f1(c.low.proj)}` : 'no chop line yet'}</div></div></div>
     <div class="lb-rows">${rows}</div></section>`;
 }
@@ -1022,10 +1022,11 @@ function lbFit() {
   /* Everything must fit the window AND every name must show in full. Shrink the text (scores included) step by step;
      if that isn't enough, drop the game-status line, then put each projection beside its score, then use short names
      ("D. Prescott"). If even that can't fit, the board scrolls rather than cutting anything off. */
-  const names = [...grid.querySelectorAll('.lb-n')];
+  const names = [...grid.querySelectorAll('.lb-n, .lb-tn')];
   const ok = () => grid.scrollHeight <= grid.clientHeight + 1 && names.every(n => n.scrollWidth <= n.clientWidth + 1);
   const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (ok()) return true; } return false; };
-  for (const [mode, from, to] of [[[], 16, 11], [['compact'], 15, 10], [['compact', 'tight'], 15, 9], [['compact', 'tight', 'short'], 15, 8]]) {
+  const big = document.fullscreenElement ? 26 : 16; // full screen has room to spare, so start bigger
+  for (const [mode, from, to] of [[[], big, 11], [['compact'], 15, 10], [['compact', 'tight'], 15, 9], [['compact', 'tight', 'short'], 15, 8]]) {
     grid.classList.remove(...MODES); grid.classList.add(...mode);
     if (fit(from, to)) return;
   }

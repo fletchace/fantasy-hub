@@ -407,10 +407,11 @@ function blFit() {
   /* Everything must fit the window AND every name must show in full. Shrink the text (scores included) step by step;
      if that isn't enough, drop the game-status line, then put each projection beside its score, then use short names
      ("D. Prescott"). If even that can't fit, the board scrolls rather than cutting anything off. */
-  const names = [...grid.querySelectorAll('.bl-n')];
+  const names = [...grid.querySelectorAll('.bl-n, .bl-tn')];
   const ok = () => grid.scrollHeight <= grid.clientHeight + 1 && names.every(n => n.scrollWidth <= n.clientWidth + 1);
   const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (ok()) return true; } return false; };
-  for (const [mode, from, to] of [[[], 16, 11], [['compact'], 15, 10], [['compact', 'tight'], 15, 9], [['compact', 'tight', 'short'], 15, 8]]) {
+  const big = document.fullscreenElement ? 26 : 16; // full screen has room to spare, so start bigger
+  for (const [mode, from, to] of [[[], big, 11], [['compact'], 15, 10], [['compact', 'tight'], 15, 9], [['compact', 'tight', 'short'], 15, 8]]) {
     grid.classList.remove(...MODES); grid.classList.add(...mode);
     if (fit(from, to)) return;
   }
