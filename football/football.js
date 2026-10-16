@@ -1025,9 +1025,7 @@ function lbFit() {
      if that isn't enough, drop the game-status line, then put each projection beside its score, then use short names
      ("D. Prescott"). If even that can't fit, the board scrolls rather than cutting anything off. */
   const names = [...grid.querySelectorAll('.lb-n, .lb-tn')];
-  // Full screen adds height but not width, so there long player names may take two lines; that lets the text grow.
-  grid.classList.toggle('wrapnames', document.body.classList.contains('lb-full'));
-  const ok = () => grid.scrollHeight <= grid.clientHeight + 1 && names.every(n => n.scrollWidth <= n.clientWidth + 1 && n.scrollHeight <= n.clientHeight + 1);
+  const ok = () => grid.scrollHeight <= grid.clientHeight + 1 && names.every(n => n.scrollWidth <= n.clientWidth + 1);
   const fit = (from, to) => { for (let fs = from; fs >= to; fs -= .5) { grid.style.setProperty('--fs', fs + 'px'); if (ok()) return true; } return false; };
   const big = 34; // as big as the window allows; the loop shrinks until everything fits
   for (const [mode, from, to] of [[[], big, 11], [['compact'], 15, 10], [['compact', 'tight'], 15, 9], [['compact', 'tight', 'short'], 15, 8]]) {
@@ -1052,7 +1050,7 @@ function renderLive() {
 }
 let lbRT = null;
 addEventListener('resize', () => { clearTimeout(lbRT); lbRT = setTimeout(lbFit, 120); });
-document.addEventListener('fullscreenchange', () => { const b = $('#lbFull'); if (b) b.textContent = document.fullscreenElement ? '✕ Exit full screen' : '⛶ Full screen'; setTimeout(lbFit, 60); setTimeout(lbFit, 400); setTimeout(lbFit, 1000); });
+document.addEventListener('fullscreenchange', () => { const b = $('#lbFull'); if (b) b.textContent = document.fullscreenElement ? '✕ Exit full screen' : '⛶ Full screen'; setTimeout(lbFit, 60); setTimeout(lbFit, 400); });
 setInterval(() => { const el = $('#lbAgo'); if (!el || !LIVE.last) return; const s = Math.round((Date.now() - LIVE.last) / 1000); el.textContent = `updated ${s < 60 ? s + 's' : Math.round(s / 60) + ' min'} ago · auto every ${gamesLiveNow() ? '30s' : '5 min'}`; }, 1000);
 
 /* ---------- expose to dynasty.js ---------- */

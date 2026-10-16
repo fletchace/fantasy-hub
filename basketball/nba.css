@@ -247,8 +247,6 @@ body.lb-on .topnav{display:none}
 .bl-pj{font-size:max(.74em,10.5px)}
 .bl-tn{font-size:max(.8em,11px)}
 .bl-grid.compact .bl-g{display:none}
-.bl-grid.wrapnames .bl-n{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.08;overflow-wrap:normal}
-
 .bl-grid.tight .bl-s{flex-direction:row;align-items:baseline;gap:.4em}
 .bl-grid.tight .bl-p.r .bl-s{flex-direction:row-reverse}
 .bl-grid.tight .bl-s small{margin-top:0}
