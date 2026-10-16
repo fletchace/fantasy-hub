@@ -190,8 +190,8 @@ body.lb-on main{max-width:none;padding-block:10px}
 .bl-top > b{font:800 22px/1 var(--font-display);text-transform:uppercase;letter-spacing:.6px}
 .bl-k{font-weight:800}.bl-k.up{color:var(--good-ink)}.bl-k.behind{color:var(--warn-ink)}.bl-k.down{color:var(--bad)}
 .bl-wrap{overflow:hidden}
-.bl-grid{--fs:15px;font-size:var(--fs);height:100%;overflow:hidden;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:.7em;align-content:start}
-.bl-card{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:.55em .65em .6em;min-width:0;box-shadow:var(--shadow)}
+.bl-grid{--fs:15px;font-size:var(--fs);height:100%;overflow:hidden;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:.7em;align-content:stretch;grid-auto-rows:minmax(0,1fr)}
+.bl-card{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:.55em .65em .6em;min-width:0;box-shadow:var(--shadow);display:flex;flex-direction:column}
 .bl-lg{display:flex;align-items:center;gap:.5em;font:700 .72em/1.2 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-text)}
 .bl-lg .sp{flex:1}
 .bl-wp{font:800 1.05em/1 var(--font-display);letter-spacing:.04em;padding:.2em .5em;border-radius:6px}
@@ -206,7 +206,7 @@ body.lb-on main{max-width:none;padding-block:10px}
 .bl-vs{font:900 .9em/1 var(--font-display);color:var(--muted);padding-bottom:.9em}
 .bl-wpbar{height:.3em;border-radius:99px;background:color-mix(in srgb,var(--bad) 40%,transparent);overflow:hidden;margin-bottom:.4em}
 .bl-wpbar i{display:block;height:100%;background:var(--good);border-radius:99px;transition:width .6s}
-.bl-rows{display:grid;gap:.22em}
+.bl-rows{display:grid;gap:.22em;flex:1 1 auto;grid-auto-rows:1fr}
 .bl-row{display:grid;grid-template-columns:minmax(0,1fr) max(3em,38px) minmax(0,1fr);align-items:stretch;gap:.3em}
 .bl-slot{display:grid;place-items:center;font:800 .62em/1 var(--font-body);letter-spacing:.06em;color:var(--muted);background:var(--surface-2);border-radius:6px}
 .bl-p{position:relative;overflow:hidden;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:.4em;padding:.28em .45em .32em;border-radius:8px;background:var(--surface-2);border:1px solid transparent;min-width:0}

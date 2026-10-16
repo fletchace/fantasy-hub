@@ -402,7 +402,7 @@ function blFit() {
   const MODES = ['compact', 'tight', 'short'];
   grid.classList.remove(...MODES); grid.style.overflowY = '';
   if (innerWidth < 700) { wrap.style.height = ''; grid.style.setProperty('--fs', '15px'); return; } // phones scroll instead
-  wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 10) + 'px';
+  wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 6) + 'px';
   const extra = document.documentElement.scrollHeight - innerHeight; if (extra > 0) wrap.style.height = Math.max(320, parseFloat(wrap.style.height) - extra) + 'px'; // page padding below the board
   /* Everything must fit the window AND every name must show in full. Shrink the text (scores included) step by step;
      if that isn't enough, drop the game-status line, then put each projection beside its score, then use short names
@@ -436,7 +436,7 @@ function renderLiveNBA() {
 }
 let blRT = null;
 addEventListener('resize', () => { clearTimeout(blRT); blRT = setTimeout(blFit, 120); });
-document.addEventListener('fullscreenchange', () => { const b = q('#blFull'); if (b) b.textContent = document.fullscreenElement ? '✕ Exit full screen' : '⛶ Full screen'; setTimeout(blFit, 60); });
+document.addEventListener('fullscreenchange', () => { const b = q('#blFull'); if (b) b.textContent = document.fullscreenElement ? '✕ Exit full screen' : '⛶ Full screen'; setTimeout(blFit, 60); setTimeout(blFit, 400); });
 setInterval(() => { const el = q('#blAgo'); if (!el || !N.last) return; const s = Math.round((Date.now() - N.last) / 1000); el.textContent = `updated ${s < 60 ? s + 's' : Math.round(s / 60) + ' min'} ago · auto every ${gamesLive() ? '30s' : '2 min'}`; }, 1000);
 
 /* ---------- loading + live refresh ---------- */

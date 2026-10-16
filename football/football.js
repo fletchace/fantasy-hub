@@ -1017,7 +1017,7 @@ function lbFit() {
   const MODES = ['compact', 'tight', 'short'];
   grid.classList.remove(...MODES); grid.style.overflowY = '';
   if (innerWidth < 700) { wrap.style.height = ''; grid.style.setProperty('--fs', '15px'); return; } // phones scroll instead
-  wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 10) + 'px';
+  wrap.style.height = Math.max(320, innerHeight - wrap.getBoundingClientRect().top - 6) + 'px';
   const extra = document.documentElement.scrollHeight - innerHeight; if (extra > 0) wrap.style.height = Math.max(320, parseFloat(wrap.style.height) - extra) + 'px'; // page padding below the board
   /* Everything must fit the window AND every name must show in full. Shrink the text (scores included) step by step;
      if that isn't enough, drop the game-status line, then put each projection beside its score, then use short names
@@ -1039,7 +1039,7 @@ function renderLive() {
   const cols = ls.length <= 3 ? ls.length : Math.ceil(ls.length / 2);
   body.innerHTML = `<div class="lb-top"><b>Week ${w}</b><span class="tag ${live ? 'good live-dot' : ''}">${live ? `● ${live} game${live === 1 ? '' : 's'} live` : 'No games live'}</span><span class="sub">${fin} final · score <b class="lb-k up">beating</b> <b class="lb-k behind">behind, still playing</b> <b class="lb-k down">finished short</b> · small numbers = projection and +/− vs it</span><span class="sp"></span><span class="sub" id="lbAgo"></span>
       <button class="btn small" id="lbRefresh">↻ Refresh</button><button class="btn small" id="lbFull">⛶ Full screen</button></div>
-    <div class="lb-wrap" id="lbWrap"><div class="lb-grid" id="lbGrid" style="--cols:${cols}">${ls.map(L => L.chopped ? lbChop(L, w) : lbH2H(L, w)).join('')}</div></div>`;
+    <div class="lb-wrap" id="lbWrap"><div class="lb-grid" id="lbGrid" style="grid-template-columns:${ls.length <= 3 ? ls.map(L => L.chopped ? 'minmax(0,1fr)' : 'minmax(0,2fr)').join(' ') : 'repeat(' + cols + ',minmax(0,1fr))'}">${ls.map(L => L.chopped ? lbChop(L, w) : lbH2H(L, w)).join('')}</div></div>`;
   lbFit();
   $$('#lbGrid [data-k]').forEach(el => { const b = before[el.dataset.k]; if (b != null && +el.dataset.v > b + .05) { el.classList.add('bump'); if (el.classList.contains('lb-sc') && el.dataset.k.endsWith(':A')) { const r = el.getBoundingClientRect(); popText(r.left + r.width / 2, r.top, '+' + f1(+el.dataset.v - b), '#86efac', 26); } } });
   $('#lbRefresh').onclick = async () => { $('#lbRefresh').disabled = true; await refreshLive(true); const b = $('#lbRefresh'); if (b) b.disabled = false; };
@@ -1047,7 +1047,7 @@ function renderLive() {
 }
 let lbRT = null;
 addEventListener('resize', () => { clearTimeout(lbRT); lbRT = setTimeout(lbFit, 120); });
-document.addEventListener('fullscreenchange', () => { const b = $('#lbFull'); if (b) b.textContent = document.fullscreenElement ? '✕ Exit full screen' : '⛶ Full screen'; setTimeout(lbFit, 60); });
+document.addEventListener('fullscreenchange', () => { const b = $('#lbFull'); if (b) b.textContent = document.fullscreenElement ? '✕ Exit full screen' : '⛶ Full screen'; setTimeout(lbFit, 60); setTimeout(lbFit, 400); });
 setInterval(() => { const el = $('#lbAgo'); if (!el || !LIVE.last) return; const s = Math.round((Date.now() - LIVE.last) / 1000); el.textContent = `updated ${s < 60 ? s + 's' : Math.round(s / 60) + ' min'} ago · auto every ${gamesLiveNow() ? '30s' : '5 min'}`; }, 1000);
 
 /* ---------- expose to dynasty.js ---------- */
