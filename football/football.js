@@ -1004,7 +1004,7 @@ function lbCell(id, pts, L, w, side, key) {
   const st = gs === 'pre' || gs === 'bye' || gs === '' ? 'wait' : pts >= proj ? 'up' : gs === 'fin' ? 'down' : 'behind';
   const pct = proj > 0 ? Math.min(100, pts / proj * 100) : pts > 0 ? 100 : 0;
   const inj = p.inj && gs === 'pre' ? ` <span class="lb-inj">${esc(/quest/i.test(p.inj) ? 'Q' : String(p.inj).toUpperCase())}</span>` : '';
-  return `<div class="lb-p ${side} ${st}" data-pid="${esc(id)}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
+  return `<div class="lb-p ${side} ${st}${gs === 'live' ? ' playing' : ''}" data-pid="${esc(id)}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
     <span class="lb-pos" style="--pc:${POS_COL[p.pos] || '#8a93ad'}">${esc(p.pos)}</span>
     <span class="lb-who"><span class="lb-n">${p.team && p.team !== 'FA' ? `<img class="lb-tl" src="https://sleepercdn.com/images/team_logos/nfl/${esc(p.team.toLowerCase())}.png" alt="${esc(p.team)}" loading="lazy" onerror="this.remove()">` : ''}<span class="nf">${esc(p.pos === 'DEF' ? lbName(p) : p.name)}</span><span class="ns">${esc(lbName(p))}</span>${inj}</span><span class="lb-g ${gs}">${esc(gl).replace('\u0001', '<span class="go">').replace('\u0002', '</span>')}</span></span>
     <span class="lb-s"><b>${f1(pts)}</b><small>${f1(proj)}${st === 'wait' ? '' : `<i class="lb-dv ${pts >= proj ? 'up' : 'dn'}">${pts >= proj ? '+' : '−'}${f1(Math.abs(pts - proj))} ${pts >= proj ? '▲' : '▼'}</i>`}</small></span><i class="lb-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
@@ -1067,7 +1067,7 @@ function renderLive() {
   const wg = G.sched.filter(g => g.week === w), live = wg.filter(g => g.status === 'in_game' || g.status === 'in_progress').length, fin = wg.filter(g => g.status === 'complete').length;
   const before = {}; $$('#lbGrid [data-k]').forEach(el => before[el.dataset.k] = +el.dataset.v);
   const cols = ls.length <= 3 ? ls.length : Math.ceil(ls.length / 2);
-  body.innerHTML = `<div class="lb-top"><b>Week ${w}</b><span class="tag ${live ? 'good live-dot' : ''}">${live ? `● ${live} game${live === 1 ? '' : 's'} live` : 'No games live'}</span><span class="sub">${fin} final · score <b class="lb-k up">beating</b> <b class="lb-k behind">behind, still playing</b> <b class="lb-k down">finished short</b> · small numbers = projection and +/− vs it</span><span class="sp"></span><span class="sub" id="lbAgo"></span>
+  body.innerHTML = `<div class="lb-top"><b>Week ${w}</b><span class="tag ${live ? 'good live-dot' : ''}">${live ? `● ${live} game${live === 1 ? '' : 's'} live` : 'No games live'}</span><span class="sub">${fin} final · score <b class="lb-k up">beating</b> <b class="lb-k behind">behind, still playing</b> <b class="lb-k down">finished short</b> · <b class="lb-k on">green box = playing now</b> · small numbers = projection and +/− vs it</span><span class="sp"></span><span class="sub" id="lbAgo"></span>
       <button class="btn small" id="lbRefresh">↻ Refresh</button><button class="btn small" id="lbFull">⛶ Full screen</button></div>
     <div class="lb-wrap" id="lbWrap"><div class="lb-grid" id="lbGrid" style="grid-template-columns:${ls.length <= 3 ? ls.map(L => L.chopped ? 'minmax(0,1fr)' : 'minmax(0,2fr)').join(' ') : 'repeat(' + cols + ',minmax(0,1fr))'}">${ls.map(L => L.chopped ? lbChop(L, w) : lbH2H(L, w)).join('')}</div></div>`;
   lbFit();

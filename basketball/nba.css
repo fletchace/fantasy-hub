@@ -231,6 +231,10 @@ body.lb-full .bl-grid .bl-n{font-weight:700}
 .bl-p.up .bl-bar{background:var(--good)}.bl-p.behind .bl-bar{background:var(--warn)}.bl-p.down .bl-bar{background:var(--bad)}
 .bl-p.bump{animation:blflash 1.4s ease-out}
 @keyframes blflash{0%{background:rgba(255,122,46,.45)}100%{background:var(--surface-2)}}
+/* game on right now: lighter green box, so you can count who is playing at a glance */
+.bl-p.playing{background:rgba(74,222,128,.2);border-color:rgba(134,239,172,.45)}
+.bl-p.playing.bump{animation:blflashOn 1.4s ease-out}
+@keyframes blflashOn{0%{background:rgba(74,222,128,.55)}100%{background:rgba(74,222,128,.2)}}
 @media (max-width:700px){.bl-grid{grid-template-columns:minmax(0,1fr)}}
 
 /* line icons (assets/icons.js) */

@@ -378,7 +378,7 @@ function blCell(id, pts, L, w, side, key) {
   const p = pl(id), [gs, gl, g] = blGame(p, w), proj = isOut(p.inj) ? 0 : lockVal(fppg(id, L.sc), g.total);
   const st = gs === 'pre' || gs === 'bye' || gs === '' ? 'wait' : pts >= proj ? 'up' : gs === 'fin' ? 'down' : 'behind';
   const pct = proj > 0 ? Math.min(100, pts / proj * 100) : pts > 0 ? 100 : 0, inj = p.inj ? ` <span class="bl-inj">${esc(/quest|dtd|gtd/i.test(p.inj) ? 'DTD' : String(p.inj).toUpperCase())}</span>` : '';
-  return `<div class="bl-p ${side} ${st}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
+  return `<div class="bl-p ${side} ${st}${gs === 'live' ? ' playing' : ''}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
     <span class="bl-pos" style="--pc:${POSC[p.pos[0]] || '#8794a3'}">${esc(p.pos[0] || '?')}</span>
     <span class="bl-who"><span class="bl-n"><span class="nf">${esc(p.name)}</span><span class="ns">${esc(blName(p))}</span>${inj}</span><span class="bl-g ${gs}">${esc(p.team)} · ${esc(gl)}</span></span>
     <span class="bl-s"><b>${f1(pts)}</b><small>${f1(proj)}${st === 'wait' ? '' : `<i class="bl-dv ${pts >= proj ? 'up' : 'dn'}">${pts >= proj ? '+' : '−'}${f1(Math.abs(pts - proj))} ${pts >= proj ? '▲' : '▼'}</i>`}</small></span><i class="bl-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
