@@ -192,6 +192,8 @@ body.lb-full .bl-grid .bl-n{font-weight:700}
 .bl-grid .bl-sc{font-size:min(2.3em,60px)}
 .bl-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .bl-top > b{font:800 22px/1 var(--font-display);text-transform:uppercase;letter-spacing:.6px}
+.bl-p[data-sid]{cursor:pointer}.bl-p[data-sid]:hover{filter:brightness(1.12)}.bl-p[data-sid]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.bd{font-size:14px}.bd th{position:static!important;text-align:left}.bd th.r{text-align:right}.bd td,.bd th{padding:7px 12px;white-space:nowrap}.bd td:first-child{white-space:normal}.bd tbody tr+tr td{border-top:1px solid var(--border)}.bd tfoot td{font-weight:800;border-top:1px solid var(--border-strong)}
 .bl-k{font-weight:800}.bl-k.up{color:var(--good-ink)}.bl-k.behind{color:var(--warn-ink)}.bl-k.down{color:var(--bad)}
 .bl-wrap{overflow:hidden}
 .bl-grid{--fs:15px;font-size:var(--fs);height:100%;overflow:hidden;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:.7em;align-content:stretch;grid-auto-rows:minmax(0,1fr)}

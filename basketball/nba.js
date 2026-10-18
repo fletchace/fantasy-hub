@@ -378,7 +378,7 @@ function blCell(id, pts, L, w, side, key) {
   const p = pl(id), [gs, gl, g] = blGame(p, w), proj = isOut(p.inj) ? 0 : lockVal(fppg(id, L.sc), g.total);
   const st = gs === 'pre' || gs === 'bye' || gs === '' ? 'wait' : pts >= proj ? 'up' : gs === 'fin' ? 'down' : 'behind';
   const pct = proj > 0 ? Math.min(100, pts / proj * 100) : pts > 0 ? 100 : 0, inj = p.inj ? ` <span class="bl-inj">${esc(/quest|dtd|gtd/i.test(p.inj) ? 'DTD' : String(p.inj).toUpperCase())}</span>` : '';
-  return `<div class="bl-p ${side} ${st}${gs === 'live' ? ' playing' : ''}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
+  return `<div class="bl-p ${side} ${st}${gs === 'live' ? ' playing' : ''}" data-sid="${esc(id)}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" tabindex="0" role="button" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected · click for the points breakdown">
     <span class="bl-pos" style="--pc:${POSC[p.pos[0]] || '#8794a3'}">${esc(p.pos[0] || '?')}</span>
     <span class="bl-who"><span class="bl-n"><span class="nf">${esc(p.name)}</span><span class="ns">${esc(blName(p))}</span>${inj}</span><span class="bl-g ${gs}">${esc(p.team)} · ${esc(gl)}</span></span>
     <span class="bl-s"><b>${f1(pts)}</b><small>${f1(proj)}${st === 'wait' ? '' : `<i class="bl-dv ${pts >= proj ? 'up' : 'dn'}">${pts >= proj ? '+' : '−'}${f1(Math.abs(pts - proj))} ${pts >= proj ? '▲' : '▼'}</i>`}</small></span><i class="bl-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
@@ -441,6 +441,84 @@ function renderLiveNBA() {
   q('#blRefresh').onclick = () => refresh(true).catch(() => {});
   q('#blFull').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); };
 }
+/* ---------- points breakdown: click a player on the Live board ----------
+   Sleeper's stat line for each of his games this week (live while games are on), scored with the league's rules.
+   Under Lock-In only one game counts, so the game whose score matches the board is picked out; tap any other game
+   to see it. The last column is his average game, as the "expected" line. */
+const BL_STATS = [['pts', 'Points scored'], ['reb', 'Rebounds'], ['oreb', 'Offensive rebounds'], ['dreb', 'Defensive rebounds'], ['ast', 'Assists'], ['stl', 'Steals'], ['blk', 'Blocks'], ['blk_stl', 'Steals + blocks'],
+  ['tpm', '3-pointers made'], ['tpa', '3-point attempts'], ['tpmi', '3-pointers missed'], ['fgm', 'Field goals made'], ['fga', 'Field goal attempts'], ['fgmi', 'Field goals missed'], ['ftm', 'Free throws made'], ['fta', 'Free throw attempts'], ['ftmi', 'Free throws missed'],
+  ['to', 'Turnovers'], ['pf', 'Personal fouls'], ['tf', 'Technical fouls'], ['ff', 'Flagrant fouls'], ['dd', 'Double-double'], ['td', 'Triple-double'], ['qd', 'Quadruple-double'],
+  ['bonus_pt_40p', '40+ point bonus'], ['bonus_pt_50p', '50+ point bonus'], ['bonus_ast_15p', '15+ assist bonus'], ['bonus_reb_20p', '20+ rebound bonus'], ['pts_reb_ast', 'Pts + reb + ast'], ['pts_reb', 'Pts + reb'], ['pts_ast', 'Pts + ast'], ['reb_ast', 'Reb + ast']];
+const blStatInfo = k => { const i = BL_STATS.findIndex(x => x[0] === k); return i < 0 ? { i: 999, label: k.replace(/_/g, ' ') } : { i, label: BL_STATS[i][1] }; };
+// fill in bonuses and doubles the feed leaves out, so they score like Sleeper does
+function blDerive(s) {
+  const o = Object.assign({}, s), n = ['pts', 'reb', 'ast', 'stl', 'blk'].filter(k => (s[k] || 0) >= 10).length, b = (k, v) => { if (o[k] == null) o[k] = v ? 1 : 0; };
+  b('dd', n >= 2); b('td', n >= 3); b('qd', n >= 4); b('bonus_pt_40p', (s.pts || 0) >= 40); b('bonus_pt_50p', (s.pts || 0) >= 50); b('bonus_ast_15p', (s.ast || 0) >= 15); b('bonus_reb_20p', (s.reb || 0) >= 20);
+  return o;
+}
+const blPlayed = s => !!s && Object.keys(s).length > 0 && (s.sp || s.pts != null || s.gp || s.min);
+const BL_STATC = {};
+async function blWeekStats(w) {
+  const c = BL_STATC[w]; if (c && Date.now() - c.at < 20e3) return c.m;
+  const arr = await sleeper('/stats/nba/' + N.season + '/' + w + '?season_type=regular', { fresh: true });
+  const m = {}; for (const x of arr || []) (m[x.player_id] = m[x.player_id] || []).push(x);
+  BL_STATC[w] = { at: Date.now(), m }; return m;
+}
+let blBDTok = 0;
+async function blBreakdown(el) {
+  const id = el.dataset.sid, key = el.dataset.k || '', lid = key.split(':').slice(0, -2).join(':'), L = N.leagues.find(x => x.id === lid) || lgSel(), w = N.week, tok = ++blBDTok;
+  const p = pl(id), sc = (L && L.sc) || draftSC(), act = +el.dataset.v || 0, [gs, gl, g] = blGame(p, w), proj = isOut(p.inj) ? 0 : lockVal(fppg(id, sc), g.total), dx = DATA_BY_SID[id];
+  const kp = (l, v, s, col) => '<div class="kpi"><div class="l">' + l + '</div><div class="v num"' + (col ? ' style="color:' + col + '"' : '') + '>' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>';
+  const diff = act - proj, started = gs !== 'pre' && gs !== 'bye' && gs !== '';
+  q('#modal').innerHTML = '<div class="modal-head"><span class="ph xl" data-i="' + esc(p.name.split(' ').map(s => s[0]).slice(0, 2).join('')) + '" style="--pc:' + (POSC[p.pos[0]] || 'var(--border)') + '"><img src="https://sleepercdn.com/content/nba/players/thumb/' + esc(id) + '.jpg" alt="" loading="lazy" onerror="this.remove()"></span>'
+    + '<div style="min-width:0"><div class="sub" style="text-transform:uppercase;letter-spacing:1px;font-weight:700">' + esc(p.pos.join('/')) + ' · ' + esc(L ? L.name : '') + '</div><h2>' + esc(p.name) + ' ' + injTag(p.inj) + '</h2><div class="sub">' + esc(p.team) + ' · ' + esc(gl) + '</div></div>'
+    + '<button class="iconbtn close" id="mClose" aria-label="Close">✕</button></div>'
+    + '<div class="modal-body"><div class="kpis">' + kp('Points', f1(act), 'on the board this week') + kp('Projected', f1(proj), 'Lock-In week, ' + g.total + ' game' + (g.total === 1 ? '' : 's')) + (started ? kp('vs projection', (diff >= 0 ? '+' : '−') + f1(Math.abs(diff)), '', diff >= 0 ? 'var(--good-ink)' : gs === 'fin' ? 'var(--bad)' : 'var(--warn-ink)') : '') + '</div>'
+    + '<div id="bdBody" style="margin-top:14px"><div class="empty-note">Loading his games…</div></div>'
+    + '<div class="row" style="margin-top:14px;gap:10px;flex-wrap:wrap">' + (dx && typeof openPlayer === 'function' ? '<button class="btn small" id="bdCard">Full player card</button>' : '') + '<span class="sub">Stats from Sleeper, scored with ' + esc(L ? L.name : 'your league') + "'s rules. Open it again for the latest.</span></div></div>";
+  q('#modalBg').classList.add('on');
+  q('#mClose').onclick = () => closeModal();
+  const card = q('#bdCard'); if (card) card.onclick = () => openPlayer(dx.id);
+  let rows = null;
+  try { rows = (await blWeekStats(w))[id] || []; } catch (e) { rows = null; }
+  if (tok !== blBDTok || !q('#modalBg').classList.contains('on')) return;
+  const box = q('#bdBody'); if (!box) return;
+  if (!rows) { box.innerHTML = '<div class="card ss-empty"><p class="sub" style="margin:0">Couldn\'t reach Sleeper\'s stat feed. Try again in a moment.</p></div>'; return; }
+  const fp = s => Object.keys(sc).reduce((t, k) => t + (s[k] || 0) * sc[k], 0);
+  const games = rows.filter(x => blPlayed(x.stats)).map(x => { const s = blDerive(x.stats); return { date: x.date, opp: x.opponent, s, pts: fp(s) }; }).sort((a, b) => a.date < b.date ? -1 : 1);
+  const sched = N.sched.filter(x => x.week === w && (x.home.team === p.team || x.away.team === p.team)).sort((a, b) => a.date < b.date ? -1 : 1);
+  const label = (date, opp) => { const m = sched.find(x => x.date === date), away = m ? m.away.team === p.team : false, o = opp || (m ? (away ? m.home.team : m.away.team) : ''); return blDay(date) + ' ' + (away ? '@ ' : 'vs ') + o; };
+  const upcoming = sched.filter(x => !games.some(gm => gm.date === x.date) && x.status !== 'complete');
+  const total = games.reduce((t, x) => t + x.pts, 0);
+  // which game is on the board: all of them (weekly total), the one that matches (Lock-In), or his latest
+  let pick = games.length > 1 && Math.abs(total - act) < .05 ? 'all' : games.findIndex(x => Math.abs(x.pts - act) < .05);
+  if (pick === -1) pick = games.length ? games.length - 1 : null;
+  const counted = pick;
+  const src = N.s26[id] && N.s26[id].gp >= 5 ? N.s26[id] : (N.s25[id] || N.s26[id]), avg = src && src.gp ? blDerive(perGame(src)) : (dx ? blDerive(dx) : {});
+  const draw = () => {
+    const s = pick === 'all' ? games.reduce((o, x) => { for (const k in x.s) if (typeof x.s[k] === 'number') o[k] = (o[k] || 0) + x.s[k]; return o; }, {}) : pick != null ? games[pick].s : {};
+    const has = pick != null, shown = pick === 'all' ? total : has ? games[pick].pts : 0;
+    const list = Object.keys(sc).filter(k => sc[k] && (s[k] || avg[k])).map(k => ({ k, v: s[k] || 0, pts: (s[k] || 0) * sc[k], ap: (avg[k] || 0) * sc[k], ...blStatInfo(k) }))
+      .filter(r => Math.abs(r.pts) >= .005 || Math.abs(r.ap) >= .05).sort((a, b) => a.i - b.i);
+    const asum = list.reduce((t, r) => t + r.ap, 0), other = pick === counted && has ? act - shown : 0;
+    const num = v => Math.abs(v - Math.round(v)) < .05 ? String(Math.round(v)) : v.toFixed(1), sg = v => (v > 0 ? '+' : '−') + f1(Math.abs(v));
+    const chip = (i, txt, sub, on, cnt) => '<button class="btn small' + (on ? ' primary' : '') + '" data-bdg="' + i + '">' + esc(txt) + ' · <b>' + sub + '</b>' + (cnt ? ' <span class="tag est" style="margin-left:4px">counts</span>' : '') + '</button>';
+    const chips = games.map((x, i) => chip(i, label(x.date, x.opp), f1(x.pts), pick === i, counted === i)).join('')
+      + (games.length > 1 ? chip('all', 'All games', f1(total), pick === 'all', counted === 'all') : '')
+      + upcoming.map(x => '<span class="pill">' + esc(label(x.date)) + ' · upcoming</span>').join('');
+    box.innerHTML = (chips ? '<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">' + chips + '</div>' : '')
+      + (!games.length ? '<p class="sub" style="margin:0 0 10px">' + (g.total ? 'No games played yet this week.' + (upcoming.length ? ' Next: ' + esc(label(upcoming[0].date)) + '.' : '') + ' The last column is his average game.' : 'No games this week.') + '</p>' : '')
+      + '<div style="overflow:auto;border:1px solid var(--border);border-radius:12px"><table class="bd"><thead><tr><th>Stat</th><th class="r">' + (pick === 'all' ? 'This week' : has ? esc(label(games[pick].date, games[pick].opp)) : 'Not played') + '</th><th class="r">Points</th><th class="r">Avg game</th></tr></thead><tbody>'
+      + list.map(r => '<tr><td>' + esc(r.label) + '</td><td class="r num">' + (has && r.v ? num(r.v) : '–') + '</td><td class="r num" style="font-weight:800;color:' + (!has || !r.pts ? 'var(--muted)' : r.pts > 0 ? 'var(--good-ink)' : 'var(--bad)') + '">' + (has && r.pts ? sg(r.pts) : '–') + '</td><td class="r num" style="color:var(--muted)">' + (r.ap ? (r.ap < 0 ? '−' + f1(-r.ap) : f1(r.ap)) : '–') + '</td></tr>').join('')
+      + (Math.abs(other) >= .05 ? '<tr><td>Other league scoring</td><td class="r num">–</td><td class="r num" style="font-weight:800">' + sg(other) + '</td><td class="r num">–</td></tr>' : '')
+      + '</tbody><tfoot><tr><td>Total</td><td></td><td class="r num">' + f1(pick === counted && has ? act : shown) + '</td><td class="r num">' + f1(asum) + '</td></tr></tfoot></table></div>'
+      + (games.length && typeof counted === 'number' && games.length > 1 ? '<p class="sub" style="margin-top:8px">Lock-In: only one game a week counts (the one you lock, or his last game if you never lock). <b>counts</b> marks the game that matches his score on the board.</p>' : '');
+    box.querySelectorAll('[data-bdg]').forEach(b => b.onclick = () => { pick = b.dataset.bdg === 'all' ? 'all' : +b.dataset.bdg; draw(); });
+  };
+  draw();
+}
+document.addEventListener('click', e => { const el = e.target.closest('.bl-p[data-sid]'); if (el && !e.target.closest('button,a,input')) blBreakdown(el); });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('bl-p') && e.target.dataset.sid) blBreakdown(e.target); });
 let blRT = null;
 try { document.fonts.addEventListener('loadingdone', () => blFit()); } catch (e) {}
 addEventListener('resize', () => { clearTimeout(blRT); blRT = setTimeout(blFit, 120); });
