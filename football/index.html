@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><ellipse cx='32' cy='32' rx='28' ry='17' fill='%238a4520' transform='rotate(-30 32 32)'/><path d='M22 38l20-12M27 36l-3-4M32 33l-3-4M37 30l-3-4' stroke='white' stroke-width='3'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Graduate&family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
-<link rel="stylesheet" href="../assets/hub.css?v=20261018a">
+<link rel="stylesheet" href="../assets/hub.css?v=20261018b">
 <style>
 /* Football HQ: page hero + playbook tabs. Every panel is a chalk card on turf; league matchups read like jumbotrons. */
 .connect{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px}
@@ -188,6 +188,8 @@ body.lb-full .lb-grid .lb-n{font-weight:700}
 .lb-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .lb-top > b{font:800 22px/1 var(--font-display);text-transform:uppercase;letter-spacing:.6px}
 .lb-top .sp{flex:1}
+.lb-p[data-pid]{cursor:pointer}.lb-p[data-pid]:hover{filter:brightness(1.18)}.lb-p[data-pid]:focus-visible{outline:2px solid var(--neon);outline-offset:1px}
+.bd td,.bd th{white-space:nowrap}.bd td:first-child{white-space:normal}.bd tfoot td{font-weight:800;border-top:1px solid var(--line-strong);padding-top:8px}
 .lb-k{font-weight:800}.lb-k.on{color:#86efac;background:rgba(74,222,128,.2);border:1px solid rgba(134,239,172,.45);border-radius:5px;padding:0 .35em}.lb-k.up{color:var(--neon)}.lb-k.behind{color:var(--warn)}.lb-k.down{color:var(--flag)}
 .lb-wrap{overflow:hidden}
 .lb-grid{--fs:15px;font-size:var(--fs);height:100%;overflow:hidden;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:.7em;align-content:stretch;grid-auto-rows:minmax(0,1fr)}
@@ -448,10 +450,10 @@ body.lb-on .tabs{top:0}
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Player card"></div></div>
 <footer class="foot">Data: the public <a href="https://docs.sleeper.com/" target="_blank" rel="noopener">Sleeper API</a> (leagues, rosters, matchups, trending, schedule) and Sleeper's projections and dynasty ADP feeds, refreshed when you open the page. Player bios come from a snapshot built <span id="snapDate"></span>. Your settings, flags and watchlist are saved in this browser only.</footer>
 
-<script src="../assets/icons.js?v=20261018a"></script>
-<script src="../assets/fx.js?v=20261018a"></script>
+<script src="../assets/icons.js?v=20261018b"></script>
+<script src="../assets/fx.js?v=20261018b"></script>
 <script src="nfl-snapshot.js"></script>
-<script src="football.js?v=20261018a"></script>
-<script src="dynasty.js?v=20261018a"></script>
+<script src="football.js?v=20261018b"></script>
+<script src="dynasty.js?v=20261018b"></script>
 </body>
 </html>

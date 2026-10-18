@@ -475,7 +475,7 @@ function show(v) {
 }
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if (!b) return; if (location.hash.slice(1) === b.dataset.v) show(b.dataset.v); else location.hash = b.dataset.v; });
 addEventListener('hashchange', () => show(location.hash.slice(1)));
-document.addEventListener('click', e => { const el = e.target.closest('[data-pid]'); if (el && !e.target.closest('button,a,input')) openPlayer(el.dataset.pid); });
+document.addEventListener('click', e => { const el = e.target.closest('[data-pid]'); if (!el || e.target.closest('button,a,input')) return; if (el.classList.contains('lb-p')) lbBreakdown(el); else openPlayer(el.dataset.pid); });
 
 /* ---------- league chips ---------- */
 function chips(el, onPick) {
@@ -1004,7 +1004,7 @@ function lbCell(id, pts, L, w, side, key) {
   const st = gs === 'pre' || gs === 'bye' || gs === '' ? 'wait' : pts >= proj ? 'up' : gs === 'fin' ? 'down' : 'behind';
   const pct = proj > 0 ? Math.min(100, pts / proj * 100) : pts > 0 ? 100 : 0;
   const inj = p.inj && gs === 'pre' ? ` <span class="lb-inj">${esc(/quest/i.test(p.inj) ? 'Q' : String(p.inj).toUpperCase())}</span>` : '';
-  return `<div class="lb-p ${side} ${st}${gs === 'live' ? ' playing' : ''}" data-pid="${esc(id)}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected">
+  return `<div class="lb-p ${side} ${st}${gs === 'live' ? ' playing' : ''}" data-pid="${esc(id)}" data-k="${esc(key)}" data-v="${pts.toFixed(2)}" tabindex="0" role="button" title="${esc(p.name)} · ${f1(pts)} of ${f1(proj)} projected · click for the points breakdown">
     <span class="lb-pos" style="--pc:${POS_COL[p.pos] || '#8a93ad'}">${esc(p.pos)}</span>
     <span class="lb-who"><span class="lb-n">${p.team && p.team !== 'FA' ? `<img class="lb-tl" src="https://sleepercdn.com/images/team_logos/nfl/${esc(p.team.toLowerCase())}.png" alt="${esc(p.team)}" loading="lazy" onerror="this.remove()">` : ''}<span class="nf">${esc(p.pos === 'DEF' ? lbName(p) : p.name)}</span><span class="ns">${esc(lbName(p))}</span>${inj}</span><span class="lb-g ${gs}">${esc(gl).replace('\u0001', '<span class="go">').replace('\u0002', '</span>')}</span></span>
     <span class="lb-s"><b>${f1(pts)}</b><small>${f1(proj)}${st === 'wait' ? '' : `<i class="lb-dv ${pts >= proj ? 'up' : 'dn'}">${pts >= proj ? '+' : '−'}${f1(Math.abs(pts - proj))} ${pts >= proj ? '▲' : '▼'}</i>`}</small></span><i class="lb-bar" style="width:${pct.toFixed(0)}%"></i></div>`;
@@ -1075,6 +1075,68 @@ function renderLive() {
   $('#lbRefresh').onclick = async () => { $('#lbRefresh').disabled = true; await refreshLive(true); const b = $('#lbRefresh'); if (b) b.disabled = false; };
   $('#lbFull').onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => toast('Full screen is blocked here')); };
 }
+/* ---------- points breakdown: click a player on the Live board ----------
+   Sleeper's weekly stat lines (live during games) scored with the league's own rules, one row per stat, next to the
+   points his projection expected from that stat. Anything the league scores that the stat feed doesn't explain
+   (ESPN-only rules, stat corrections) shows as one "other" row so the total always matches the board. */
+const LB_STATS = [
+  ['pass_yd', 'Passing yards', 'yds'], ['pass_td', 'Passing TD'], ['pass_2pt', 'Passing 2-pt'], ['pass_int', 'Interceptions thrown'], ['pass_fd', 'Passing first downs'], ['pass_sack', 'Times sacked'], ['pass_cmp', 'Completions'], ['pass_inc', 'Incompletions'], ['pass_att', 'Pass attempts'],
+  ['rush_yd', 'Rushing yards', 'yds'], ['rush_td', 'Rushing TD'], ['rush_2pt', 'Rushing 2-pt'], ['rush_fd', 'Rushing first downs'], ['rush_att', 'Carries'],
+  ['rec', 'Receptions'], ['rec_yd', 'Receiving yards', 'yds'], ['rec_td', 'Receiving TD'], ['rec_2pt', 'Receiving 2-pt'], ['rec_fd', 'Receiving first downs'], ['rec_tgt', 'Targets'],
+  ['bonus_', 'Bonus'], ['fum_lost', 'Fumbles lost'], ['fum', 'Fumbles'], ['fum_rec_td', 'Fumble recovery TD'], ['st_td', 'Return TD'], ['kr_yd', 'Kick return yards', 'yds'], ['pr_yd', 'Punt return yards', 'yds'],
+  ['xpm', 'Extra points made'], ['xpmiss', 'Extra points missed'], ['fgm_yds', 'Field goal yards', 'yds'], ['fgm_0_19', 'FG made, 0–19 yds'], ['fgm_20_29', 'FG made, 20–29 yds'], ['fgm_30_39', 'FG made, 30–39 yds'], ['fgm_40_49', 'FG made, 40–49 yds'],
+  ['fgm_50_59', 'FG made, 50–59 yds'], ['fgm_50p', 'FG made, 50+ yds'], ['fgm_60p', 'FG made, 60+ yds'], ['fgm', 'Field goals made'], ['fgmiss', 'Field goals missed'],
+  ['sack', 'Sacks'], ['int', 'Interceptions'], ['fum_rec', 'Fumble recoveries'], ['ff', 'Forced fumbles'], ['def_td', 'Defensive TD'], ['safe', 'Safeties'], ['blk_kick', 'Blocked kicks'],
+  ['def_st_td', 'Special teams TD'], ['def_st_fum_rec', 'Special teams fumble recoveries'], ['def_st_ff', 'Special teams forced fumbles'], ['st_fum_rec', 'Special teams fumble recoveries'], ['st_ff', 'Special teams forced fumbles'],
+  ['tkl_loss', 'Tackles for loss'], ['qb_hit', 'QB hits'], ['def_pass_def', 'Passes defended'], ['def_4_and_stop', '4th-down stops'], ['def_3_and_out', 'Three-and-outs'], ['pts_allow', 'Points allowed'], ['yds_allow', 'Yards allowed']
+];
+const lbStatInfo = k => { const t = k.match(/^(pts_allow|yds_allow|fgmiss)_/), base = t ? t[1] : k.startsWith('bonus_') ? 'bonus_' : k, i = LB_STATS.findIndex(x => x[0] === base); return i < 0 ? { i: 999, label: k.replace(/_/g, ' ') } : { i, label: LB_STATS[i][1], unit: LB_STATS[i][2] }; };
+// "pts_allow_14_20" -> "Points allowed (17, the 14–20 tier)"; "bonus_rec_yd_100" -> "Bonus: 100+ receiving yards"
+function lbStatLabel(k, s) {
+  const inf = lbStatInfo(k), tier = k.match(/^(pts|yds)_allow_(\d+)(?:_(\d+)|p)$/);
+  if (tier) { const amt = s && s[tier[1] + '_allow']; return inf.label + (amt != null ? ' (' + Math.round(amt) + ')' : '') + ' · ' + tier[2] + (tier[3] ? '–' + tier[3] : '+') + ' tier'; }
+  const miss = k.match(/^fgmiss_(\d+)_(\d+)$|^fgmiss_(\d+)p$/); if (miss) return 'FG missed, ' + (miss[3] ? miss[3] + '+' : miss[1] + '–' + miss[2]) + ' yds';
+  if (k.startsWith('bonus_')) { const w = k.slice(6).split('_').map(x => ({ pass: 'passing', rush: 'rushing', rec: 'receiving', yd: 'yards', td: 'TD', fd: 'first downs', cmp: 'completions' }[x] || x)), n = /^\d+p?$/.test(w[w.length - 1]) ? w.pop().replace('p', '') + '+ ' : ''; return 'Bonus: ' + n + w.join(' '); }
+  return inf.label;
+}
+const lbAmt = (k, v, unit) => { if (v == null || v === 0) return '–'; if (/^(pts|yds)_allow_/.test(k)) return '✓'; const n = Math.abs(v - Math.round(v)) < .05 ? String(Math.round(v)) : v.toFixed(1); return unit ? n + ' ' + unit : n; };
+const LB_STATC = {};
+async function lbWeekStats(pos, w) {
+  const k = pos + ':' + w, c = LB_STATC[k]; if (c && Date.now() - c.at < 20e3) return c.m;
+  const arr = await sleeper(`/stats/nfl/${G.season}/${w}?season_type=regular&position%5B%5D=${encodeURIComponent(pos)}`, { fresh: true });
+  const m = {}; for (const x of arr || []) m[x.player_id] = x.stats || {};
+  LB_STATC[k] = { at: Date.now(), m }; return m;
+}
+let lbBDTok = 0;
+async function lbBreakdown(el) {
+  const id = el.dataset.pid, key = el.dataset.k || '', lid = key.split(':').slice(0, -2).join(':'), L = allLeagues().find(x => x.id === lid) || selLeague(), w = G.week;
+  const p = pl(id), act = +el.dataset.v || 0, proj = projFor(id, L, w), [gs, gl] = lbGame(p.team, w), tok = ++lbBDTok;
+  const line = gl.replace('\u0001', '').replace('\u0002', '');
+  const head = '<div class="modal-head">' + ph(p, 'xl') + '<div style="min-width:0"><div class="eyebrow">' + esc(p.pos) + ' · ' + esc(L ? L.name : '') + '</div><h2>' + esc(p.name) + '</h2><div class="sub">' + esc(line) + ' ' + injTag(p.inj) + '</div></div><button class="xbtn" data-close aria-label="Close">✕</button></div>';
+  const diff = act - proj, stat = '<div class="mstat"><div><span class="l">Points</span><b>' + f1(act) + '</b></div><div><span class="l">Projected</span><b>' + f1(proj) + '</b></div>'
+    + (gs === 'pre' || gs === 'bye' || gs === '' ? '' : '<div><span class="l">vs projection</span><b style="color:' + (diff >= 0 ? 'var(--neon)' : gs === 'fin' ? 'var(--flag)' : 'var(--warn)') + '">' + (diff >= 0 ? '+' : '−') + f1(Math.abs(diff)) + '</b></div>') + '</div>';
+  const foot = '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px"><button class="btn small" id="bdCard">Full player card</button><span class="sub">Stats from Sleeper, scored with ' + esc(L ? L.name : 'your league') + "'s rules. Open it again for the latest.</span></div>";
+  openModal(head + '<div class="modal-body">' + stat + '<div id="bdBody" style="margin-top:14px"><div class="spinner"></div></div>' + foot + '</div>');
+  $('#bdCard').onclick = () => openPlayer(id);
+  let s = {};
+  try { s = (await lbWeekStats(p.pos === 'DEF' ? 'DEF' : p.pos, w))[id] || {}; } catch (e) { s = null; }
+  if (tok !== lbBDTok || !modalBg.classList.contains('on')) return;
+  const box = $('#bdBody'); if (!box) return;
+  const sc = (L && L.scoring) || PRESETS.ppr, pj = (G.wk[w] && G.wk[w][id] && G.wk[w][id].s) || {};
+  const rows = Object.keys(sc).filter(k => sc[k] && ((s && s[k]) || pj[k])).map(k => ({ k, v: (s && s[k]) || 0, pts: ((s && s[k]) || 0) * sc[k], pp: (pj[k] || 0) * sc[k], ...lbStatInfo(k) }))
+    .filter(r => Math.abs(r.pts) >= .005 || Math.abs(r.pp) >= .05).sort((a, b) => a.i - b.i || b.pts - a.pts);
+  const sum = rows.reduce((t, r) => t + r.pts, 0), psum = rows.reduce((t, r) => t + r.pp, 0), started = gs !== 'pre' && gs !== 'bye' && gs !== '';
+  const other = started && s ? act - sum : 0, pother = proj - psum;
+  if (!rows.length && !started) { box.innerHTML = '<div class="card empty" style="padding:18px"><p class="sub" style="margin:0">' + (gs === 'bye' ? 'On bye this week.' : 'No stats yet. ' + esc(line) + '.') + '</p></div>'; return; }
+  if (!s) { box.innerHTML = '<div class="card empty" style="padding:18px"><p class="sub" style="margin:0">Couldn\'t reach Sleeper\'s stat feed. Try again in a moment.</p></div>'; return; }
+  const tr = r => '<tr><td>' + esc(lbStatLabel(r.k, s)) + '</td><td class="r num">' + (started ? lbAmt(r.k, r.v, r.unit) : '–') + '</td><td class="r num" style="font-weight:800;color:' + (!started || !r.pts ? 'var(--muted)' : r.pts > 0 ? 'var(--neon)' : 'var(--flag)') + '">' + (started && r.pts ? (r.pts > 0 ? '+' : '−') + f1(Math.abs(r.pts)) : '–') + '</td><td class="r num" style="color:var(--muted)">' + (r.pp ? (r.pp < 0 ? '−' + f1(-r.pp) : f1(r.pp)) : '–') + '</td></tr>';
+  box.innerHTML = '<div class="tablewrap"><table class="bd"><thead><tr><th>Stat</th><th class="r">' + (started ? 'This week' : 'Not started') + '</th><th class="r">Points</th><th class="r">Projected</th></tr></thead><tbody>'
+    + rows.map(tr).join('')
+    + (Math.abs(other) >= .05 || Math.abs(pother) >= .15 ? '<tr><td>Other league scoring' + (L && L.kind === 'espn' ? ' (ESPN rules)' : '') + '</td><td class="r num">–</td><td class="r num" style="font-weight:800">' + (Math.abs(other) >= .05 ? (other > 0 ? '+' : '−') + f1(Math.abs(other)) : '–') + '</td><td class="r num" style="color:var(--muted)">' + (Math.abs(pother) >= .15 ? (pother < 0 ? '−' + f1(-pother) : f1(pother)) : '–') + '</td></tr>' : '')
+    + '</tbody><tfoot><tr><td>Total</td><td></td><td class="r num">' + f1(act) + '</td><td class="r num">' + f1(proj) + '</td></tr></tfoot></table></div>'
+    + (started && !rows.some(r => r.v) && act === 0 ? '<p class="sub" style="margin-top:8px">No fantasy points yet.</p>' : '');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('lb-p') && e.target.dataset.pid) lbBreakdown(e.target); });
 let lbRT = null;
 try { document.fonts.addEventListener('loadingdone', () => lbFit()); } catch (e) {}
 addEventListener('resize', () => { clearTimeout(lbRT); lbRT = setTimeout(lbFit, 120); });
