@@ -693,6 +693,7 @@ html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gr
   </details>
   <div id="dGrade"></div>
   <div class="draft-layout">
+    <div>
     <div class="card">
       <div class="row"><h3>Available</h3><span class="spacer"></span><span class="sub" id="dAvailCount"></span></div>
       <div class="controls" style="margin:8px 0">
@@ -703,13 +704,15 @@ html .hero-main.jumbo,html .clock,html .gradecard{background:repeating-linear-gr
       <div class="avail" id="dAvail"></div>
       <div class="sub" style="margin-top:8px">Click a name (or press <kbd>Enter</kbd> on it) to draft him to the team on the clock. <kbd>Enter</kbd> in search drafts the top match. The % is the chance he's still there at your next pick, from 1,000 simulated drafts.</div>
     </div>
+    <div class="card" style="margin-top:14px" id="dTgtCard">
+      <div class="row"><h3>My targets</h3><span class="spacer"></span><span class="sub" id="dTgtSub"></span></div>
+      <div class="avail" id="dTgt" style="margin-top:8px;max-height:420px"></div>
+      <div class="sub" id="dTgtFoot" style="margin-top:8px"></div>
+    </div>
+    </div>
     <div>
       <div id="dLive"></div>
       <div class="clock" id="dClock" aria-live="polite"></div>
-      <div class="card" style="margin-top:14px" id="dAlertsCard">
-        <div class="row"><h3>Draft alerts</h3><span class="spacer"></span><span class="sub">Position runs and thinning tiers</span></div>
-        <div id="dAlerts" style="margin-top:8px"></div>
-      </div>
       <div class="card" style="margin-top:14px">
         <div class="row"><h3>Best picks for you</h3><span class="spacer"></span><span class="sub" id="dRecSub"></span><button class="btn small" id="askBtn" hidden>Ask Claude</button></div>
         <div class="askbox" id="askBox" hidden>
@@ -1919,9 +1922,6 @@ function renderDraft() {
     <div class="sub">${isMine ? `Recommendations below are tuned to your roster and lineup.${O.at != null ? ` Your next pick after this: #${O.at + 1}.` : ''}` : mine.length ? `Your next pick: #${mine[0] + 1} (${mine[0] - cur} picks away)` : 'No picks left for you'}</div></div>
     <span class="spacer"></span>${D.timer > 0 ? `<div class="timer ${timerLeft <= 20 ? 'low' : ''}" id="dTimerEl">${fmtT(timerLeft)}</div>` : ''}</div>
     <div class="bar" style="margin-top:12px;height:6px;background:rgba(255,255,255,.14)" role="progressbar" aria-label="Draft progress" aria-valuemin="0" aria-valuemax="${totalPicks()}" aria-valuenow="${cur}"><i style="width:${cur / totalPicks() * 100}%"></i></div>`;
-  // alerts
-  const al = draftAlerts(dset);
-  $('#dAlerts').innerHTML = al.length ? al.map(a => `<div class="alert ${a.cls}"><b class="k">${a.k}</b><span>${esc(a.t)}</span></div>`).join('') : `<div class="alert ok"><b class="k">CALM</b><span>No position runs and no thin tiers right now.</span></div>`;
   // available list
   const q = DR.q.toLowerCase();
   let avail = RANKED.filter(p => !dset.has(p.id) && (DR.pos === 'ALL' || p.elig.includes(DR.pos)) && (!q || p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q)));
@@ -1935,6 +1935,20 @@ function renderDraft() {
       <div class="pmeta">${p.team} · age ${fmt(p.age)} · ${fmt(p.fp1)} FPPG · ADP ${fmt(p.mkt, 1)} · T${p.tier}${NOTES[p.id] ? ' · note' : ''}</div></div>
       ${O.at != null ? oddsPill(O.probs.get(p.id), O.at) : ''}
       <button class="btn small ghost" data-info="${p.id}" title="Profile" aria-label="Profile for ${esc(p.name)}">i</button></div>`).join('') || '<div class="empty-note">Nobody left here.</div>';
+  // my targets: every starred player still on the board and his chance of being gone before your next pick
+  const tgtAll = RANKED.filter(p => FLAGS[p.id] === 'T'), tgtLeft = tgtAll.filter(p => !dset.has(p.id)), tgtGone = tgtAll.filter(p => dset.has(p.id));
+  const goneOdds = p => O.at != null ? 1 - (O.probs.get(p.id) ?? 1) : null;
+  $('#dTgtSub').textContent = O.at != null ? `Chance he's taken before your pick #${O.at + 1}${isMine ? ' (if you pass now)' : ''}` : '';
+  $('#dTgt').innerHTML = tgtLeft.length ? [...tgtLeft].sort((a, b) => (goneOdds(b) ?? 0) - (goneOdds(a) ?? 0) || a.rank - b.rank).map(p => {
+    const g = goneOdds(p);
+    return `<div class="it" data-id="${p.id}" tabindex="0" role="button" aria-label="Draft ${esc(p.name)} for ${esc(onT == null ? '' : teamName(onT))}">
+      <span class="rk num">${p.rank}</span>${photo(p, 'sm')}
+      <div style="flex:1;min-width:0"><div class="pname" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:var(--warn-ink)">★</span> ${esc(p.name)}${eligChips(p)}</div>
+      <div class="pmeta">${p.team} · age ${fmt(p.age)} · ${fmt(p.fp1)} FPPG · ADP ${fmt(p.mkt, 1)} · T${p.tier}</div></div>
+      ${g == null ? '' : `<span class="odds ${g >= 0.65 ? 'lo' : g >= 0.3 ? 'md' : 'hi'}" title="Chance he's taken before your pick #${O.at + 1}">${Math.round(g * 100)}% gone</span>`}
+      <button class="btn small ghost" data-info="${p.id}" title="Profile" aria-label="Profile for ${esc(p.name)}">i</button></div>`;
+  }).join('') : `<div class="empty-note">${tgtAll.length ? 'All of your targets are off the board.' : 'No targets yet. Star (★) players on the Board or in a player profile and they show up here.'}</div>`;
+  $('#dTgtFoot').innerHTML = tgtGone.length ? 'Already drafted: ' + tgtGone.map(p => { const b = draftedBy(p.id); return `${esc(p.name)} (${b && b.team === myTeam() ? '<b>yours</b>' : esc(teamName(b ? b.team : null))})`; }).join(', ') : (tgtLeft.length ? 'Click a name to draft him to the team on the clock.' : '');
   // lineup
   const slots = slotList(), mr = rosterOf(myTeam()), mrP = mr.map(o => o.p);
   const lm = matchLineup(mrP, slots);
